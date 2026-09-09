@@ -16,15 +16,17 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Roboto', sans-serif; /* Toàn bộ nội dung dùng Roboto */
     background-color: var(--bg-color);
     color: var(--text-main);
     line-height: 1.6;
     overflow-x: hidden;
 }
 
+/* Các tiêu đề lớn nhỏ sẽ mang phong cách Oswald mạnh mẽ */
 h1, h2, h3, .logo {
-    font-family: 'Syne', sans-serif;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 0.5px;
 }
 
 .container {
