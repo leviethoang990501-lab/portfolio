@@ -1,0 +1,5 @@
+target/
+*.log
+server-console.txt
+server-error.txt
+*.bak
