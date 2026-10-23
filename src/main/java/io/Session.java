@@ -12,9 +12,10 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -30,7 +31,6 @@ import core.SQL;
 import core.SaveData;
 import core.ServerManager;
 import core.Util;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import map.Map;
@@ -40,9 +40,9 @@ import template.Part_player;
 
 public class Session implements Runnable {
 
-    public static final List<Session> client_entrys = new LinkedList<>();
-    public static final HashMap<String, Session> players = new HashMap<>();
-    public static final HashMap<String, Long> players_off = new HashMap<>();
+    public static final List<Session> client_entrys = new CopyOnWriteArrayList<>();
+    public static final ConcurrentHashMap<String, Session> players = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Long> players_off = new ConcurrentHashMap<>();
     public final Socket socket;
     private DataInputStream dis;
     private DataOutputStream dos;
@@ -172,8 +172,12 @@ public class Session implements Runnable {
     public void addmsg(Message m) {
         if (connected) {
             boolean added = this.list_msg.add(m);
-            System.out.println("ADDMSG cmd=" + m.cmd + " size=" + (m.getData() != null ? m.getData().length : 0) + " queue=" + this.list_msg.size() + " added=" + added + " user=" + user);
-        } else {
+            if (Manager.gI().debug) {
+                System.out.println("ADDMSG cmd=" + m.cmd + " size="
+                        + (m.getData() != null ? m.getData().length : 0)
+                        + " queue=" + this.list_msg.size() + " added=" + added + " user=" + user);
+            }
+        } else if (Manager.gI().debug) {
             System.out.println("ADDMSG FAILED (not connected) cmd=" + m.cmd + " user=" + user);
         }
     }
@@ -408,12 +412,18 @@ public class Session implements Runnable {
             noticelogin("Vượt quá số lượng ip có thể truy cập vào thời điểm này!");
             return;
         }
-        if (pass_.equals("1") && user_.equals("1")) {
+        if (Manager.gI().allowAutoRegister && pass_.equals("1") && user_.equals("1")) {
             user = "knightauto_hsod_" + String.valueOf(System.nanoTime());
             pass = "hsr_132";
 
-            try ( Connection connnect = SQL.gI().getConnection();  Statement ps = connnect.createStatement()) {
-                ps.executeUpdate("INSERT INTO `account` (`user`, `pass`, `char`,  `lock`, `coin`, `ip`, `tongnap`) VALUES ('" + user + "', '" + pass + "', '[]', '0', '0','0', 0)");
+            String insertAccount = "INSERT INTO `account` "
+                    + "(`user`, `pass`, `char`, `lock`, `coin`, `ip`, `tongnap`) "
+                    + "VALUES (?, ?, '[]', 0, 0, '0', 0)";
+            try (Connection connection = SQL.gI().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(insertAccount)) {
+                statement.setString(1, user);
+                statement.setString(2, pass);
+                statement.executeUpdate();
             } catch (SQLException e) {
                 e.printStackTrace();
                 noticelogin("Có lỗi xảy ra, hãy thử lại!");
@@ -425,10 +435,14 @@ public class Session implements Runnable {
             }
         } else {
             //
-            String query = "SELECT * FROM `account` WHERE `user` = '" + user_ + "' AND `pass` = '" + pass_ + "' LIMIT 1;";
-            try ( Connection conn = SQL.gI().getConnection();  Statement ps = conn.createStatement();  ResultSet rs = ps.executeQuery(query)) {
+            String query = "SELECT * FROM `account` WHERE `user` = ? AND `pass` = ? LIMIT 1;";
+            try (Connection conn = SQL.gI().getConnection();
+                 PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, user_);
+                ps.setString(2, pass_);
+                try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
-                    noticelogin("Sai cmn pass rồi");
+                    noticelogin("Sai tài khoản hoặc mật khẩu");
                     return;
                 }
                 this.status = rs.getByte("status");
@@ -446,7 +460,7 @@ public class Session implements Runnable {
                 for (int i = 0; i < 3; i++) {
                     this.list_char[i] = "";
                 }
-                for (int i = 0; i < jsar.size(); i++) {
+                for (int i = 0; i < Math.min(jsar.size(), this.list_char.length); i++) {
                     this.list_char[i] = jsar.get(i).toString();
                 }
                 jsar.clear();
@@ -456,6 +470,7 @@ public class Session implements Runnable {
                     for (int i = 0; i < jsar.size(); i++) {
                         moc_nap.add(jsar.get(i).toString());
                     }
+                }
                 }
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -687,9 +702,9 @@ public class Session implements Runnable {
             ps.setLong(5, 0L); // exp
             ps.setNString(6, "[0,132,354]");
             ps.setNString(7, vietHoang ? "[[11,99],[14,99],[62,99],[63,99],[64,99],[65,99],[66,99]]" : "[[11,1],[14,1]]");
-            ps.setNString(8, "[]");
-            ps.setLong(9, vietHoang ? 1_000_000_000L : 3000L);
-            ps.setInt(10, vietHoang ? 1_000_000 : 3000);
+            ps.setNString(8, CharacterDefaults.starterUpgradeMaterials());
+            ps.setLong(9, CharacterDefaults.starterGold(vietHoang));
+            ps.setInt(10, CharacterDefaults.starterGems(vietHoang));
             ps.setInt(11, vietHoang ? 10_000 : 5);
             ps.setInt(12, vietHoang ? 500 : 1);
             ps.setInt(13, vietHoang ? 1_000 : 5);
@@ -701,8 +716,8 @@ public class Session implements Runnable {
             ps.setNString(19, "[]");
             ps.setNString(20, CharacterDefaults.starterWear(clazz));
             ps.setNString(21, vietHoang ? "[\"viet-hoang-profile-pending\"]" : "[]");
-            ps.setNString(22, "[]");
-            ps.setByte(23, (byte) (vietHoang ? 126 : 42));
+            ps.setNString(22, CharacterDefaults.starterEaglePet());
+            ps.setByte(23, (byte) CharacterDefaults.STARTER_BAG_CAPACITY);
             ps.setNString(24, "[]");
             ps.setNString(25, "[]");
             ps.setNString(26, "[]");

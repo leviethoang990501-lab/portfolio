@@ -5,6 +5,7 @@ import ai.Player_Nhan_Ban;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import client.Party;
 import client.Pet;
 import client.Player;
@@ -14,6 +15,7 @@ import core.Manager;
 import core.MenuController;
 import core.Service;
 import core.Util;
+import core.Khu2Rules;
 import event.BossEvent;
 import event_daily.ChienTruong;
 import event_daily.LoiDai;
@@ -60,7 +62,7 @@ public class Map implements Runnable {
     public final byte maxplayer;
     public final byte maxzone;
     private final byte[] map_data;
-    private boolean running;
+    private volatile boolean running;
     public int num_mob_super;
     public Dungeon d;
     public LoiDai ld;
@@ -79,7 +81,7 @@ public class Map implements Runnable {
         this.maxzone = (byte) maxzone;
         this.item_map = new ItemMap[100];
         this.mapthread = new Thread(this);
-        this.players = new ArrayList<>();
+        this.players = new CopyOnWriteArrayList<>();
         this.vgos = vgo;
         this.running = false;
         this.num_mob_super = 0;
@@ -94,6 +96,7 @@ public class Map implements Runnable {
 		long time1 = 0;
 		long time2 = 0;
 		long time3 = 0;
+		long lastLoopErrorLog = 0;
 		while (this.running) {
 			try {
 				time1 = System.currentTimeMillis();
@@ -130,7 +133,15 @@ public class Map implements Runnable {
 					Thread.sleep(time3);
 				}
 			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				break;
 			} catch (Exception e) {
+				long now = System.currentTimeMillis();
+				if (now - lastLoopErrorLog >= 10_000L) {
+					lastLoopErrorLog = now;
+					System.err.println("Map loop error: map=" + this.map_id + ", zone=" + (this.zone_id + 1));
+					e.printStackTrace();
+				}
 			}
 		}
 	}
@@ -626,38 +637,33 @@ private void auto_chat_npc() {
                             p.set_x2_xp(0);
                         }
                         if (temp.id == -127) {
-                            // Check auto renewal with dong bac tyche only if in zone 1 and map has monsters
+                            // Het han thi luon dua nguoi choi ve khu thuong; khong tu dong gia han.
                             if (this.zone_id == 1 && Map.has_monster(this.map_id)) {
-                                if (p.item.total_item_by_id(4, 54) > 0) {
-                                    p.item.remove(4, 54, 1);
-                                    p.item.char_inventory(4);
-                                    p.add_eff(-127, 1, 60 * 60 * 1000);
-                                    Service.send_notice_box(p.conn, "Đã tự động sử dụng 1 Đồng bạc Tyche để gia hạn thêm 1 giờ ở Khu 2!");
-                                } else {
-                                    Map[] mapAll = Map.get_map_by_id(this.map_id);
-                                    Map targetNormalZone = null;
-                                    if (mapAll != null) {
+                                Map[] mapAll = Map.get_map_by_id(this.map_id);
+                                Map targetNormalZone = null;
+                                if (mapAll != null) {
+                                    for (Map mZone : mapAll) {
+                                        if (mZone.zone_id != 1 && mZone.players.size() < mZone.maxplayer) {
+                                            targetNormalZone = mZone;
+                                            break;
+                                        }
+                                    }
+                                    if (targetNormalZone == null) {
                                         for (Map mZone : mapAll) {
-                                            if (mZone.zone_id != 1 && mZone.players.size() < mZone.maxplayer) {
+                                            if (mZone.zone_id != 1) {
                                                 targetNormalZone = mZone;
                                                 break;
                                             }
                                         }
-                                        if (targetNormalZone == null) {
-                                            for (Map mZone : mapAll) {
-                                                if (mZone.zone_id != 1) {
-                                                    targetNormalZone = mZone;
-                                                    break;
-                                                }
-                                            }
-                                        }
                                     }
-                                    if (targetNormalZone != null) {
-                                        MapService.leave(this, p);
-                                        p.map = targetNormalZone;
-                                        MapService.enter(p.map, p);
-                                        Service.send_notice_box(p.conn, "Hết thời gian sử dụng Khu 2 và không có Đồng bạc Tyche, bạn đã được chuyển về Khu thường!");
-                                    }
+                                }
+                                if (targetNormalZone != null) {
+                                    MapService.leave(this, p);
+                                    p.map = targetNormalZone;
+                                    MapService.enter(p.map, p);
+                                    Service.send_notice_box(p.conn,
+                                            "Đã hết " + Khu2Rules.DURATION_HOURS
+                                                    + " giờ farm Khu 2. Bạn đã được chuyển về khu thường!");
                                 }
                             }
                         }

@@ -4,6 +4,7 @@ import core.GameSrc;
 import event.Event_1;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -440,10 +441,16 @@ public class TextFromClient {
                 // e.printStackTrace();
                 // return;
                 // }
-                String query = "UPDATE `account` SET `user` = '" + value1 + "', `pass` = '" + value2 + "' WHERE `user` = '"
-                        + conn.user + "' LIMIT 1";
-                try ( Connection connnect = SQL.gI().getConnection();  Statement statement = connnect.createStatement();) {
-                    statement.executeUpdate(query);
+                String query = "UPDATE `account` SET `user` = ?, `pass` = ? WHERE `user` = ? LIMIT 1";
+                try (Connection connection = SQL.gI().getConnection();
+                     PreparedStatement statement = connection.prepareStatement(query)) {
+                    statement.setString(1, value1);
+                    statement.setString(2, value2);
+                    statement.setString(3, conn.user);
+                    if (statement.executeUpdate() != 1) {
+                        Service.send_notice_box(conn, "Không tìm thấy tài khoản cần cập nhật");
+                        return;
+                    }
                 } catch (SQLException e) {
                     e.printStackTrace();
                     Service.send_notice_box(conn, "Có lỗi xảy ra hoặc tên đã được sử dụng, hãy thử lại");

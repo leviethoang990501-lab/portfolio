@@ -6,6 +6,9 @@ import java.io.IOException;
 import core.Manager;
 import core.Service;
 import core.Util;
+import core.Khu2Rules;
+import core.MedalRules;
+import core.MenuController;
 import event_daily.CongNap;
 import event_daily.Wedding;
 import io.Message;
@@ -77,6 +80,10 @@ public class Process_Yes_no_box {
             }
         } else {
             switch (type) {
+                case 101: {
+                    MenuController.upgradeBagCapacity(conn);
+                    break;
+                }
                 
                 case 107: {
 					if (conn.p.nv_tinh_tu[3] < 10) {
@@ -415,7 +422,7 @@ public class Process_Yes_no_box {
                                 case 8:
                                 case 9:
                                 case 10:
-                                case 11: 
+                                case 11:
                                 case 13:
                                 case 14:
                                 case 15:
@@ -445,6 +452,15 @@ public class Process_Yes_no_box {
                                         conn.p.update_ngoc(-5_000);
 
                                     }
+                                    break;
+                                }
+                                case 12: {
+                                    if (conn.p.get_ngoc() < MedalRules.CHANGE_LINE_GEM_COST) {
+                                        Service.send_notice_box(conn,
+                                                "Không đủ " + MedalRules.CHANGE_LINE_GEM_COST + " ngọc");
+                                        return;
+                                    }
+                                    conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
                                     break;
                                 }
                                 default: {
@@ -891,30 +907,43 @@ public class Process_Yes_no_box {
                     break;
                 }
                 case 122: {
-                    int fee = 100 * conn.p.item.bag3[conn.p.item_replace].tier;
-                    if (conn.p.item.total_item_by_id(7, 348) < 2) {
-                    Service.send_notice_box(conn, "Không đủ 2 viên đá thạch anh cấp 3");
-                    return;
-                } else {
-                    Service.send_notice_box(conn, "Không đủ 2 viên đá thạch anh cấp 3");
-                }
-                    if (conn.p.get_ngoc() < fee) {
-                        Service.send_notice_box(conn, "Không đủ " + fee + " ngọc!");
+                    if (conn.p.item_replace < 0 || conn.p.item_replace >= conn.p.item.bag3.length
+                            || conn.p.item_replace2 < 0 || conn.p.item_replace2 >= conn.p.item.bag3.length
+                            || conn.p.item.bag3[conn.p.item_replace] == null
+                            || conn.p.item.bag3[conn.p.item_replace2] == null) {
+                        Service.send_notice_box(conn, "Trang bị chuyển hóa không còn trong hành trang!");
                         return;
                     }
-                    conn.p.item.bag3[conn.p.item_replace2].tier = conn.p.item.bag3[conn.p.item_replace].tier;
-                    conn.p.item.bag3[conn.p.item_replace].tier = 0;
-                    if (conn.p.item.bag3[conn.p.item_replace2].type == 5
-                            && conn.p.item.bag3[conn.p.item_replace2].tier >= 9) {
-                        for (Option op_ : conn.p.item.bag3[conn.p.item_replace2].op) {
-                            if (op_.id == 37 && op_.getParam(conn.p.item.bag3[conn.p.item_replace2].tier) > 1) {
-                                op_.setParam(op_.getParam(conn.p.item.bag3[conn.p.item_replace2].tier));
+                    Item3 source = conn.p.item.bag3[conn.p.item_replace];
+                    Item3 target = conn.p.item.bag3[conn.p.item_replace2];
+                    if (source.tier < 6 || target.tier != 0 || source.type != target.type
+                            || source.level > target.level) {
+                        Service.send_notice_box(conn, "Hai trang bị không còn đủ điều kiện chuyển hóa!");
+                        return;
+                    }
+                    if (conn.p.item.total_item_by_id(7, 348) < 1) {
+                        Service.send_notice_box(conn, "Không có Đá thạch anh cấp 3!");
+                        return;
+                    }
+
+                    target.tier = source.tier;
+                    source.tier = 0;
+                    if (!target.islock) {
+                        target.islock = true;
+                        target.name = ItemTemplate3.item.get(target.id).getName() + " [Khóa]";
+                    }
+                    if (target.type == 5 && target.tier >= 9) {
+                        for (Option op_ : target.op) {
+                            if (op_.id == 37 && op_.getParam(target.tier) > 1) {
+                                op_.setParam(op_.getParam(target.tier));
                             }
                         }
                     }
-                    conn.p.update_ngoc(-fee);
+                    conn.p.item.remove(7, 348, 1);
+                    conn.p.item.char_inventory(7);
                     conn.p.item.char_inventory(3);
-                    Service.send_notice_box(conn, "Chuyển hóa thành công!");
+                    Service.send_notice_box(conn,
+                            "Chuyển hóa thành công! Đã dùng 1 viên Đá thạch anh cấp 3, không tốn ngọc.");
                     Message m3 = new Message(73);
                     m3.writer().writeByte(0);
                     m3.writer().writeShort(conn.p.item_replace2);
@@ -929,6 +958,8 @@ public class Process_Yes_no_box {
                     conn.addmsg(m3);
                     m3.cleanup();
                     //
+                    conn.p.item_replace = -1;
+                    conn.p.item_replace2 = -1;
                     break;
                 }
                 case 123: {
@@ -1039,14 +1070,17 @@ public class Process_Yes_no_box {
                         }
                         return;
                     }
-                    if (conn.p.get_ngoc() < 50) {
-                        Service.send_notice_box(conn, "Bạn không đủ 50 Ngọc để vào Khu 2!");
+                    if (conn.p.get_ngoc() < Khu2Rules.COST_GEMS) {
+                        Service.send_notice_box(conn,
+                                "Bạn không đủ " + Khu2Rules.COST_GEMS + " Ngọc để vào Khu 2!");
                         return;
                     }
-                    conn.p.update_ngoc(-50);
+                    conn.p.update_ngoc(-Khu2Rules.COST_GEMS);
                     conn.p.item.char_inventory(5);
-                    conn.p.add_eff(-127, 1, 60 * 60 * 1000);
-                    Service.send_notice_box(conn, "Đã trừ 50 Ngọc. Bạn có 1 giờ trải nghiệm tại Khu 2!");
+                    conn.p.add_eff(-127, 1, Khu2Rules.DURATION_MILLIS);
+                    Service.send_notice_box(conn,
+                            "Đã trừ " + Khu2Rules.COST_GEMS
+                                    + " Ngọc. Thời gian farm Khu 2: 02:00:00. Hết giờ bạn sẽ tự động về khu thường.");
                     if (conn.p.map.zone_id != 1) {
                         MapService.leave(conn.p.map, conn.p);
                         conn.p.map = targetMap;

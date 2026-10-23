@@ -11,6 +11,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 import client.Clan;
@@ -45,8 +46,8 @@ public class Manager {
 
     public int size_mob;
     private static Manager instance;
-    public final HashMap<String, Integer> ip_create_char = new HashMap<>();
-    public final HashMap<String, Long> time_login_client = new HashMap<>();
+    public final ConcurrentHashMap<String, Integer> ip_create_char = new ConcurrentHashMap<>();
+    public final ConcurrentHashMap<String, Long> time_login_client = new ConcurrentHashMap<>();
     public final byte[] msg_25_new;
     public final byte[] msg_29_chienbinh;
     public final byte[] msg_29_satthu;
@@ -72,6 +73,7 @@ public class Manager {
     public int lvmax;
     public int allow_ip_client;
     public int time_login;
+    public boolean allowAutoRegister;
     public boolean vietHoangMode;
     public int vietHoangLevel;
     public List<ItemSell3[]> itemsellTB;
@@ -774,7 +776,8 @@ public class Manager {
                         final String key = sbf.substring(0, j).trim();
                         final String value = sbf.substring(j + 1).trim();
                         configMap.put(key, value);
-                        System.out.println("config: " + key + ": " + value);
+                        String displayedValue = key.toLowerCase().contains("password") ? "***" : value;
+                        System.out.println("config: " + key + ": " + displayedValue);
                     }
                 }
                 sbd.setLength(0);
@@ -847,13 +850,15 @@ public class Manager {
         } else {
             this.time_login = 3000;
         }
+        this.allowAutoRegister = Boolean.parseBoolean(
+                configMap.getOrDefault("allow-auto-register", "false"));
         if (configMap.containsKey("event")) {
             this.event = Integer.parseInt(configMap.get("event"));
         } else {
             this.event = 0;
         }
         this.vietHoangMode = Boolean.parseBoolean(configMap.getOrDefault("viet-hoang-mode", "false"));
-        this.vietHoangLevel = Integer.parseInt(configMap.getOrDefault("viet-hoang-level", "150"));
+        this.vietHoangLevel = Integer.parseInt(configMap.getOrDefault("viet-hoang-level", "1"));
         if (this.vietHoangLevel < 1) this.vietHoangLevel = 1;
         if (this.vietHoangLevel > this.lvmax) this.vietHoangLevel = this.lvmax;
     }

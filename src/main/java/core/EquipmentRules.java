@@ -38,6 +38,7 @@ public final class EquipmentRules {
         return item != null
                 && wearSlot(item.type, (byte) -1) >= 0
                 && (item.clazz == 4 || item.clazz == playerClazz)
+                && MedalRules.canWear(item, playerClazz)
                 && (item.type == 27 || item.level <= playerLevel);
     }
 }

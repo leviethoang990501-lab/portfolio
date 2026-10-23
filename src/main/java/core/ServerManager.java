@@ -27,10 +27,11 @@ public class ServerManager implements Runnable {
     private static ServerManager instance;
     private final Thread mythread;
     private Thread server_live;
-    private boolean running;
+    private volatile boolean running;
     private ServerSocket server;
     private final long time;
     public long time_l;
+    private long lastBossSpawnErrorLog;
 
     public ServerManager() {
         this.time = System.currentTimeMillis();
@@ -70,7 +71,7 @@ public class ServerManager implements Runnable {
     public void run() {
         try {
             this.server = new ServerSocket(Manager.gI().server_port);
-            System.out.println("Khởi Chạy Trong " + (System.currentTimeMillis() - this.time) + "s");
+            System.out.println("Khởi chạy trong " + (System.currentTimeMillis() - this.time) + " ms");
             System.out.println();
             System.out.println("Server Đang Chạy Ở Cổng " + Manager.gI().server_port +"" );
             while (this.running) {
@@ -216,6 +217,12 @@ public class ServerManager implements Runnable {
                                 }
                             });
                         } catch (Exception e) {
+                            long errorTime = System.currentTimeMillis();
+                            if (errorTime - lastBossSpawnErrorLog >= 10_000L) {
+                                lastBossSpawnErrorLog = errorTime;
+                                System.err.println("Boss event update failed");
+                                e.printStackTrace();
+                            }
                         }
                     }
                     //

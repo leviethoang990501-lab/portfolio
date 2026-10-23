@@ -12,6 +12,7 @@ import java.sql.Statement;
 import java.sql.PreparedStatement;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +27,8 @@ import core.Util;
 import core.EquipmentRules;
 import core.SkillRules;
 import core.VietHoangProfile;
+import core.Khu2Rules;
+import core.MedalRules;
 import event_daily.ChienTruong;
 import event_daily.Wedding;
 import io.Message;
@@ -473,6 +476,9 @@ public class Player {
                     temp.op.add(
                             new Option(Byte.parseByte(jsar4.get(0).toString()), Integer.parseInt(jsar4.get(1).toString())));
                 }
+                if (MedalRules.normalizeEquipped(temp, clazz)) {
+                    temp.name = ItemTemplate3.item.get(temp.id).getName() + " [Khóa]";
+                }
                 temp.time_use = 0;
                 byte savedSlot = Byte.parseByte(jsar2.get(9).toString());
                 int slot = EquipmentRules.wearSlot(temp.type, savedSlot);
@@ -808,6 +814,16 @@ public class Player {
         if (i < 0 &&conn.p.nv_tinh_tu[0] == 10 && conn.p.nv_tinh_tu[1] < conn.p.nv_tinh_tu[2]) {
 			conn.p.nv_tinh_tu[1]++;
 		}
+    }
+
+    public synchronized boolean expandBagCapacity(int newCapacity) {
+        int currentCapacity = Byte.toUnsignedInt(maxbag);
+        if (item == null || item.bag3 == null || newCapacity <= currentCapacity || newCapacity > 126) {
+            return false;
+        }
+        item.bag3 = Arrays.copyOf(item.bag3, newCapacity);
+        maxbag = (byte) newCapacity;
+        return true;
     }
 
     @SuppressWarnings("unchecked")
@@ -1586,8 +1602,10 @@ public class Player {
                 if (zone == 1 && Map.has_monster(this.map.map_id)) { // Vào Khu 2 của map có quái
                     EffTemplate efKhu2 = get_eff(-127);
                     if (efKhu2 == null || efKhu2.time <= System.currentTimeMillis()) {
-                        // Hiển thị popup xác nhận 50 ngọc
-                        Service.send_box_input_yesno(conn, 100, "Bạn có muốn dùng 50 Ngọc để vào Khu 2 trong 1 giờ không?");
+                        Service.send_box_input_yesno(conn, 100,
+                                "Dùng " + Khu2Rules.COST_GEMS + " Ngọc để vào Khu 2 trong "
+                                        + Khu2Rules.DURATION_HOURS
+                                        + " giờ?\nKhu 2 tăng tỷ lệ rơi trang bị và đồ tím, có Cỏ ba lá/Cỏ bốn lá.");
                         return;
                     }
                 }

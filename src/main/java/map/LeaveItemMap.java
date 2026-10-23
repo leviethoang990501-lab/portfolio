@@ -87,19 +87,23 @@ public class LeaveItemMap {
 	}
 
 	public static void leave_vang_eagle(Map map, int mob_index, Player p) throws IOException {
-		int index_item_map = map.get_item_map_index_able();
-		if (index_item_map > -1) {
-			int vang_drop = Util.random(client.Pet.EAGLE_GOLD_MIN, client.Pet.EAGLE_GOLD_MAX + 1);
+		int remainingGold = Util.random(client.Pet.EAGLE_GOLD_MIN, client.Pet.EAGLE_GOLD_MAX + 1);
+		while (remainingGold > 0) {
+			int index_item_map = map.get_item_map_index_able();
+			if (index_item_map < 0) {
+				break;
+			}
+			int pileGold = Math.min(Short.MAX_VALUE, remainingGold);
+			remainingGold -= pileGold;
 			map.item_map[index_item_map] = new ItemMap();
 			map.item_map[index_item_map].id_item = -1;
 			map.item_map[index_item_map].color = 0;
-			map.item_map[index_item_map].quantity = (short) Math.min(Short.MAX_VALUE, Math.max(1, vang_drop));
+			map.item_map[index_item_map].quantity = (short) pileGold;
 			map.item_map[index_item_map].category = 4;
 			map.item_map[index_item_map].idmaster = (short) p.id;
 			map.item_map[index_item_map].time_exist = System.currentTimeMillis() + 60_000L;
 			map.item_map[index_item_map].time_pick = System.currentTimeMillis() + 1_500L;
 			String name = "vàng *" + map.item_map[index_item_map].quantity;
-			// add in4 game scr
 			Message mi = new Message(19);
 			mi.writer().writeByte(4);
 			mi.writer().writeShort(mob_index); // target mob index

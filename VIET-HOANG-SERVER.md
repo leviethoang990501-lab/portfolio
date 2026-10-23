@@ -10,14 +10,14 @@ Chế độ tổng hợp được điều khiển trong `hso.conf`:
 
 ```text
 viet-hoang-mode: true
-viet-hoang-level: 150
+viet-hoang-level: 1
 ```
 
 Đổi `viet-hoang-mode` thành `false` nếu muốn trở lại quy trình tạo nhân vật bình thường.
 
 ## Hồ sơ nhân vật test
 
-- Nhân vật đăng nhập trong chế độ Việt Hoàng tự nhận cấp tối thiểu 150, vàng/ngọc, 126 ô hành trang, đủ 21 skill theo class, đủ 12 pet và bộ vật phẩm kiểm thử. Các trang bị phù hợp được tự đặt vào ô trống, gồm đủ các vị trí 12-19 của tab `Trang bị 2`. Profile có phiên bản nên nhân vật cũ tự nhận phần bổ sung đúng một lần.
+- Nhân vật đăng nhập trong chế độ Việt Hoàng bắt đầu từ cấp 1, đồng thời nhận vàng/ngọc, 126 ô hành trang, đủ 21 skill theo class, đủ 12 pet và bộ vật phẩm kiểm thử. Các trang bị phù hợp được tự đặt vào ô trống, gồm đủ các vị trí 12-19 của tab `Trang bị 2`. Profile có phiên bản nên nhân vật cũ tự nhận phần bổ sung đúng một lần.
 - Tài khoản cũ gõ `/viethoang` để nhận hồ sơ đúng một lần. Server ghi dấu nên không cấp lặp lại sau mỗi lần đăng nhập.
 - Gõ `/map ID` để đi nhanh tới một map đã được server nạp, ví dụ `/map 61`.
 - Gõ `/help` để xem lại lệnh test.

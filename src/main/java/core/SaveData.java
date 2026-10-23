@@ -33,6 +33,7 @@ public class SaveData {
     public synchronized static void process() {
         long time_check = System.currentTimeMillis();
         Connection conn = null;
+        boolean saveSucceeded = false;
         try {
             conn = SQL.gI().getConnection();
             conn.setAutoCommit(true);
@@ -519,7 +520,7 @@ public class SaveData {
                 temp.chuyensinh = rs.getInt("chuyensinh");
                 JSONArray jsar = (JSONArray) JSONValue.parse(rs.getString("body"));
                 if (jsar == null) {
-                    return;
+                    continue;
                 }
                 temp.head = Byte.parseByte(jsar.get(0).toString());
                 temp.hair = Byte.parseByte(jsar.get(2).toString());
@@ -527,7 +528,7 @@ public class SaveData {
                 jsar.clear();
                 jsar = (JSONArray) JSONValue.parse(rs.getString("itemwear"));
                 if (jsar == null) {
-                    return;
+                    continue;
                 }
                 temp.itemwear = new ArrayList<>();
                 for (int i3 = 0; i3 < jsar.size(); i3++) {
@@ -673,15 +674,21 @@ rs.close();
             if (rs.next()) {
                 Map.name_mo = rs.getString("name");
                 JSONArray js = (JSONArray) JSONValue.parse(rs.getString("body"));
+                if (js == null || js.size() < 3) {
+                    throw new IllegalStateException("Invalid body data for top PK player " + Map.name_mo);
+                }
                 Map.head = Short.parseShort(js.get(0).toString());
                 Map.eye = Short.parseShort(js.get(1).toString());
                 Map.hair = Short.parseShort(js.get(2).toString());
                 js.clear();
                 js = (JSONArray) JSONValue.parse(rs.getString("itemwear"));
+                if (js == null) {
+                    throw new IllegalStateException("Invalid itemwear data for top PK player " + Map.name_mo);
+                }
                 for (int i3 = 0; i3 < js.size(); i3++) {
                     JSONArray jsar2 = (JSONArray) JSONValue.parse(js.get(i3).toString());
                     if (jsar2 == null) {
-                        return;
+                        continue;
                     }
                     byte index_wear = Byte.parseByte(jsar2.get(9).toString());
                     if (index_wear != 0 && index_wear != 1 && index_wear != 2 && index_wear != 7 && index_wear != 10) {
@@ -712,6 +719,7 @@ rs.close();
 
             rs.close();
             ps.close();
+            saveSucceeded = true;
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("[" + Util.get_now_by_time() + "] save data fail!");
@@ -720,8 +728,14 @@ rs.close();
                 try { conn.close(); } catch (Exception ignore) {}
             }
         }
-        System.out.println("[" + Util.get_now_by_time() + "] save data ok " + (System.currentTimeMillis() - time_check));
-        ServerManager.gI().time_l = System.currentTimeMillis() + 60_000L;
+        if (saveSucceeded) {
+            System.out.println("[" + Util.get_now_by_time() + "] save data ok "
+                    + (System.currentTimeMillis() - time_check));
+            ServerManager.gI().time_l = System.currentTimeMillis() + 60_000L;
+        } else {
+            // Retry sooner after a failed save, but avoid a tight loop that can overload MySQL.
+            ServerManager.gI().time_l = System.currentTimeMillis() + 10_000L;
+        }
 //        }
     }
 }

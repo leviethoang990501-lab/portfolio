@@ -21,7 +21,9 @@ import template.Player_store;
 
 public class GameSrc {
 
-    public static byte[] percent = new byte[]{95, 90, 80, 70, 60, 50, 45, 35, 25, 15, 10, 5, 4, 3, 2, 1};
+    // Tỷ lệ cơ bản theo phần trăm cho cấp hiện tại +0 đến +15.
+    // Giữ đồ cấp cao có giá trị nhưng giảm cảm giác thất bại liên tục từ mốc +7 trở lên.
+    public static byte[] percent = new byte[]{100, 100, 96, 92, 88, 82, 75, 60, 50, 40, 32, 26, 22, 18, 15, 3};
     public static short[] wing_upgrade_material_long_khuc_xuong = new short[]{10, 12, 15, 19, 24, 30, 37, 45, 54, 64,
         75, 87, 100, 114, 129, 145, 162, 180, 199, 219, 240, 262, 285, 309, 334, 360, 387, 415, 444, 474};
     public static short[] wing_upgrade_material_kim_loai = new short[]{20, 22, 25, 29, 34, 40, 47, 55, 64, 74, 85, 97,
@@ -52,8 +54,8 @@ public class GameSrc {
                 Service.send_notice_box(conn, "Trang bị cường hóa không còn trong hành trang");
                 return;
             }
-            if (id != 13 && id != 14 && id != 4) {
-                Service.send_notice_box(conn, "Chỉ nên dùng cỏ 4 lá hoặc đá 3 màu");
+            if (!UpgradeRules.isLuckyMaterial(id)) {
+                Service.send_notice_box(conn, "Chỉ dùng được đá may mắn, cỏ 3 lá, cỏ 4 lá hoặc đá 3 màu");
                 return;
             }
             Message m = new Message(67);
@@ -64,7 +66,7 @@ public class GameSrc {
                     m.writer().writeShort(id);
                     conn.p.id_use_mayman = id;
                     m.writer().writeByte(7);
-                    m.writer().writeUTF(GameSrc.percent[tier] + "% + 30%");
+                    m.writer().writeUTF(GameSrc.percent[tier] + "% + " + UpgradeRules.luckyBonus(id) + "%");
                     conn.p.is_use_mayman = true;
                     break;
                 }
@@ -148,14 +150,10 @@ public class GameSrc {
                         }
                         boolean percent;
                         int get_percent = GameSrc.percent[it_upgrade.tier];
-                        if (it_upgrade.tier < 7) {
-                            get_percent += 30;
+                        if (conn.p.is_use_mayman) {
+                            get_percent += UpgradeRules.luckyBonus(conn.p.id_use_mayman);
                         }
-                        if (conn.p.is_use_mayman && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13)) {
-                            percent = (get_percent + 15) > Util.random(0, 120);
-                        } else {
-                            percent = get_percent > Util.random(0, 120);
-                        }
+                        percent = Util.random(0, 100) < Math.min(100, get_percent);
                         if (percent) {
                             conn.p.item.bag3[conn.p.id_item_rebuild].tier++;
                             if (it_upgrade.tier >= 9 && conn.p.item.bag3[conn.p.id_item_rebuild].type == 5) {
@@ -167,24 +165,13 @@ public class GameSrc {
                                 }
                             }
                         } else {
-                            if (conn.p.is_use_mayman && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13)) {
-                                if (conn.p.id_use_mayman == 13) {
-                                    if (it_upgrade.tier > 6 && it_upgrade.tier != 11) {
-                                        it_upgrade.tier -= 1;
-                                    }
-                                }
-                            } else {
-                                if (it_upgrade.tier >= 11) {
-                                    it_upgrade.tier = 11;
-                                } else if (it_upgrade.tier >= 6) {
-                                    it_upgrade.tier = 6;
-                                } else if (it_upgrade.tier >= 1) {
-                                    it_upgrade.tier = 1;
-                                }
-                            }
+                            short luckyItem = conn.p.is_use_mayman ? conn.p.id_use_mayman : -1;
+                            boolean luckyStoneInsurance = luckyItem == UpgradeRules.LUCKY_STONE
+                                    && Util.random(0, 100) < 30;
+                            it_upgrade.tier = (byte) UpgradeRules.failureTier(
+                                    luckyItem, it_upgrade.tier, luckyStoneInsurance);
                         }
-                        if (conn.p.is_use_mayman
-                                && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13 || conn.p.id_use_mayman == 4)) {
+                        if (conn.p.is_use_mayman && UpgradeRules.isLuckyMaterial(conn.p.id_use_mayman)) {
                             conn.p.item.remove(7, conn.p.id_use_mayman, 1);
                             conn.p.item.char_inventory(7);
                             if (conn.p.item.total_item_by_id(7, conn.p.id_use_mayman) < 1) {
@@ -664,6 +651,10 @@ public class GameSrc {
         byte type = m2.reader().readByte();
         short id = m2.reader().readShort();
         if (type == 0) {
+            if (id < 0 || id >= p.item.bag3.length || p.item.bag3[id] == null) {
+                Service.send_notice_box(p.conn, "Trang bị không hợp lệ!");
+                return;
+            }
             if (p.item.bag3[id] != null && !check_item_can_rebuild(p.item.bag3[id].type)) {
                 Service.send_notice_box(p.conn, "Không hợp lệ!");
                 return;
@@ -703,21 +694,18 @@ public class GameSrc {
             p.conn.addmsg(m);
             m.cleanup();
         } else if (type == 1) {
+            if (p.item_replace < 0 || p.item_replace >= p.item.bag3.length
+                    || p.item_replace2 < 0 || p.item_replace2 >= p.item.bag3.length
+                    || p.item.bag3[p.item_replace] == null || p.item.bag3[p.item_replace2] == null) {
+                Service.send_notice_box(p.conn, "Hãy chọn đủ hai trang bị cần chuyển hóa!");
+                return;
+            }
             if (p.item.bag3[p.item_replace].tier < p.item.bag3[p.item_replace2].tier) {
                 Service.send_notice_box(p.conn, "Đã chuyển hóa xong rồi!!! ấn nữa muốn về +0 hết không?");
                 return;
             }
-            if (!p.item.bag3[p.item_replace2].islock) {
-                p.item.bag3[p.item_replace2].islock = true;
-                p.item.bag3[p.item_replace2].name
-                        = ItemTemplate3.item.get(p.item.bag3[p.item_replace2].id).getName() + " [Khóa]";
-                p.item.char_inventory(4);
-                p.item.char_inventory(7);
-                p.item.char_inventory(3);
-            }
-            int fee = 100 * p.item.bag3[p.item_replace].tier;
             Service.send_box_input_yesno(p.conn, 122,
-                    "Chuyển hóa sẽ mất phí " + fee + " ngọc, bạn có chắc chắn muốn chuyển hóa?");
+                    "Chuyển hóa sẽ dùng 1 viên Đá thạch anh cấp 3 và không tốn ngọc. Bạn có chắc chắn?");
         }
     }
 
@@ -894,18 +882,6 @@ public class GameSrc {
 						m.writer().writeByte(color_); // color
 						m.writer().writeByte(0); // can sell
 						m.writer().writeByte(0); // can trade
-						m.writer().writeByte(temp.getOp().size());
-						for (int i = 0; i < temp.getOp().size(); i++) {
-							m.writer().writeByte(temp.getOp().get(i).id);
-							m.writer().writeInt(temp.getOp().get(i).getParam(0));
-						}
-						m.writer().writeInt(0); // time use
-						m.writer().writeByte(0);
-						m.writer().writeByte(0);
-						m.writer().writeByte(0);
-						conn.addmsg(m);
-						m.cleanup();
-						//
 						Item3 itbag = new Item3();
 						itbag.id = temp.getId();
 						itbag.clazz = temp.getClazz();
@@ -933,7 +909,7 @@ public class GameSrc {
 							op.setParam(Util.random(8, 10));
 						}
 						opnew.add(op);
-						int st = Util.random(1, 5);
+						int st = MedalRules.flatDamageOptionForMedal(temp.getId());
 						if (color_ == 0) {
 							int pr = Util.random(10, 100);
 							opnew.add(new Option(st, pr));
@@ -950,11 +926,26 @@ public class GameSrc {
 							int pr = Util.random(500, 600);
 							opnew.add(new Option(st, pr));
 						}
+						// Send the generated medal options, not the empty template options.
+						// Otherwise the crafting result appears to have no damage until reconnecting.
+						m.writer().writeByte(opnew.size());
+						for (Option generatedOption : opnew) {
+							m.writer().writeByte(generatedOption.id);
+							m.writer().writeInt(generatedOption.getParam(0));
+						}
+						m.writer().writeInt(0); // time use
+						m.writer().writeByte(0);
+						m.writer().writeByte(0);
+						m.writer().writeByte(0);
+						conn.addmsg(m);
+						m.cleanup();
 						//
 						itbag.op = new ArrayList<>();
 						itbag.op.addAll(opnew);
 						itbag.time_use = 0;
 						conn.p.item.add_item_bag3(itbag);
+						conn.p.item.char_inventory(7);
+						conn.p.item.char_inventory(3);
 						if (conn.p.nv_tinh_tu[0] == 28 && conn.p.nv_tinh_tu[1] < conn.p.nv_tinh_tu[2]) {
 							conn.p.nv_tinh_tu[1]++;
 						}

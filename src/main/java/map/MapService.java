@@ -15,6 +15,7 @@ import core.Service;
 import core.Util;
 import core.SkillRules;
 import core.VietHoangProfile;
+import core.ExpRules;
 import event.BossEvent;
 import event_daily.ChienTruong;
 import event_daily.LoiDai;
@@ -3376,29 +3377,7 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
         if (p.level <= 10) {
             expup = expup * 3;
         }
-        if (Math.abs(mob.level - p.level) == 0) {
-            expup = expup;
-        } else if (Math.abs(mob.level - p.level) > 1) {
-            expup = (expup * 11) / 10;
-        } else if (Math.abs(mob.level - p.level) > 2) {
-            expup = (expup * 12) / 10;
-        } else if (Math.abs(mob.level - p.level) > 3) {
-            expup = (expup * 13) / 10;
-        } else if (Math.abs(mob.level - p.level) > 4) {
-            expup = (expup * 14) / 10;
-        } else if (Math.abs(mob.level - p.level) > 5) {
-            expup = (expup * 15) / 10;
-        } else if (Math.abs(p.level - mob.level) > 1) {
-            expup = (expup * 9) / 10;
-        } else if (Math.abs(p.level - mob.level) > 2) {
-            expup = (expup * 8) / 10;
-        } else if (Math.abs(p.level - mob.level) > 3) {
-            expup = (expup * 7) / 10;
-        } else if (Math.abs(p.level - mob.level) > 4) {
-            expup = (expup * 6) / 10;
-        } else if (Math.abs(p.level - mob.level) > 5) {
-            expup = (expup * 5) / 10;
-        }
+        expup = ExpRules.applyLevelDifference(expup, p.level, mob.level);
         if (p.hieuchien > 0) {
             expup /= 2;
         }

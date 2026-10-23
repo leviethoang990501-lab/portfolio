@@ -3,6 +3,7 @@ package core;
 import event.Event_1;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -180,10 +181,11 @@ public class MenuController {
                 break;
             }
             case -7: {
+                String bagUpgradeLabel = BagUpgradeRules.menuLabel(Byte.toUnsignedInt(conn.p.maxbag));
                 if (conn.user.contains("knightauto_hsod_")) {
-                    menu = new String[]{"Rương giữ đồ", "Mở thêm ô hành trang", "Đăng ký tài khoản", "Chuyển Sinh", "Số Lần Chuyển Sinh"};
+                    menu = new String[]{"Rương giữ đồ", bagUpgradeLabel, "Đăng ký tài khoản", "Chuyển Sinh", "Số Lần Chuyển Sinh"};
                 } else {
-                    menu = new String[]{"Rương giữ đồ", "Mở thêm ô hành trang", "Mật khẩu rương", "Chuyển Sinh", "Số Lần Chuyển Sinh", "NVHN"};
+                    menu = new String[]{"Rương giữ đồ", bagUpgradeLabel, "Mật khẩu rương", "Chuyển Sinh", "Số Lần Chuyển Sinh", "NVHN"};
                 }
                 break;
             }
@@ -2437,17 +2439,16 @@ public class MenuController {
                 break;
             }
             case 1: {
-                if (conn.p.maxbag >= 126) {
-                    Service.send_notice_box(conn, "Đã mở rương rồi!");
+                int currentCapacity = Byte.toUnsignedInt(conn.p.maxbag);
+                if (!BagUpgradeRules.canUpgrade(currentCapacity)) {
+                    Service.send_notice_box(conn, "Hành trang đã đạt tối đa "
+                            + BagUpgradeRules.MAX_CAPACITY + " ô!");
                     return;
                 }
-                try ( Connection connection = SQL.gI().getConnection();  Statement statement = connection.createStatement();) {
-                    statement.executeUpdate("UPDATE `player` SET `maxbag` = 126 WHERE `id` = " + conn.p.id + ";");
-                    Service.send_notice_box(conn, "Mở thành công 126 ô, hãy thoát game vào lại để cập nhật!");
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                    Service.send_notice_box(conn, "Có lỗi xảy ra, hãy thử lại!");
-                }
+                int newCapacity = BagUpgradeRules.nextCapacity(currentCapacity);
+                int gemCost = BagUpgradeRules.gemCost(currentCapacity);
+                Service.send_box_input_yesno(conn, 101, "Dùng " + gemCost + " ngọc để mở hành trang từ "
+                        + currentCapacity + " lên " + newCapacity + " ô?");
                 break;
             }
             case 2: {
@@ -2556,6 +2557,52 @@ public class MenuController {
             default: {
                 Service.send_notice_box(conn, "Chưa có chức năng");
                 break;
+            }
+        }
+    }
+
+    public static void upgradeBagCapacity(Session conn) throws IOException {
+        synchronized (conn.p) {
+            int currentCapacity = Byte.toUnsignedInt(conn.p.maxbag);
+            if (!BagUpgradeRules.canUpgrade(currentCapacity)) {
+                Service.send_notice_box(conn, "Hành trang đã đạt tối đa "
+                        + BagUpgradeRules.MAX_CAPACITY + " ô!");
+                return;
+            }
+
+            int newCapacity = BagUpgradeRules.nextCapacity(currentCapacity);
+            int gemCost = BagUpgradeRules.gemCost(currentCapacity);
+            if (conn.p.get_ngoc() < gemCost) {
+                Service.send_notice_box(conn, "Cần " + gemCost + " ngọc để mở thêm "
+                        + (newCapacity - currentCapacity) + " ô hành trang!");
+                return;
+            }
+            if (conn.p.item == null || conn.p.item.bag3 == null) {
+                Service.send_notice_box(conn, "Hành trang chưa sẵn sàng, hãy đăng nhập lại!");
+                return;
+            }
+
+            int gemsAfterPurchase = conn.p.get_ngoc() - gemCost;
+            String sql = "UPDATE `player` SET `maxbag` = ?, `kimcuong` = ? WHERE `id` = ?";
+            try (Connection connection = SQL.gI().getConnection();
+                    PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setInt(1, newCapacity);
+                statement.setInt(2, gemsAfterPurchase);
+                statement.setInt(3, conn.p.id);
+                if (statement.executeUpdate() != 1) {
+                    Service.send_notice_box(conn, "Không tìm thấy nhân vật để mở rộng hành trang!");
+                    return;
+                }
+
+                conn.p.expandBagCapacity(newCapacity);
+                conn.p.update_ngoc(-gemCost);
+                Service.send_char_main_in4(conn.p);
+                conn.p.item.char_inventory(3);
+                Service.send_notice_box(conn, "Mở thành công " + newCapacity
+                        + " ô hành trang, đã dùng " + gemCost + " ngọc!");
+            } catch (SQLException e) {
+                e.printStackTrace();
+                Service.send_notice_box(conn, "Có lỗi xảy ra, chưa trừ ngọc. Hãy thử lại!");
             }
         }
     }
@@ -2740,11 +2787,9 @@ public class MenuController {
             }
             case 9: {
                 List<String> list = new ArrayList<>();
-                for (int i = 0; i < conn.p.item.bag3.length; i++) {
-                    Item3 it = conn.p.item.bag3[i];
-                    if (it != null && it.type == 16) {
-                        list.add(it.name + " +" + it.tier);
-                    }
+                for (Item3 it : getMedalsForLineChange(conn)) {
+                    list.add(it.name + " +" + it.tier
+                            + (it == conn.p.item.wear[12] ? " (đang đeo)" : ""));
                 }
 
                 String[] list_2 = new String[]{"Trống"};
@@ -2759,12 +2804,9 @@ public class MenuController {
             }
             case 10: {
                 List<String> list = new ArrayList<>();
-                for (int i = 0; i < conn.p.item.bag3.length; i++) {
-                    Item3 it = conn.p.item.bag3[i];
-
-                    if (it != null && it.type == 16) {
-                        list.add(it.name + " +" + it.tier);
-                    }
+                for (Item3 it : getMedalsForLineChange(conn)) {
+                    list.add(it.name + " +" + it.tier
+                            + (it == conn.p.item.wear[12] ? " (đang đeo)" : ""));
                 }
                 String[] list_2 = new String[]{"Trống"};
                 if (list.size() > 0) {
@@ -3106,8 +3148,14 @@ public class MenuController {
             boolean isMapMonster = Map.has_monster(conn.p.map.map_id);
             for (int i = 0; i < conn.p.map.maxzone; i++) {
                 if (i == 1 && isMapMonster) {
+                    EffTemplate khu2Effect = conn.p.get_eff(-127);
+                    String remaining = "";
+                    if (khu2Effect != null && khu2Effect.time > System.currentTimeMillis()) {
+                        remaining = " - còn " + Util.getTime((int) ((khu2Effect.time - System.currentTimeMillis()) / 1000));
+                    }
                     m.writer().writeUTF(
-                            "Khu 2 (Trả phí) (" + map[i].players.size() + "/" + map[i].maxplayer + ")");
+                            "Khu 2 (" + Khu2Rules.COST_GEMS + " ngọc/" + Khu2Rules.DURATION_HOURS
+                                    + " giờ" + remaining + ") (" + map[i].players.size() + "/" + map[i].maxplayer + ")");
                 } else {
                     m.writer().writeUTF(
                             "Khu " + (map[i].zone_id + 1) + " (" + map[i].players.size() + "/" + map[i].maxplayer + ")");
@@ -3816,21 +3864,12 @@ public class MenuController {
     }
 
     private static void Menu_ThayDongMeDay_percent(Session conn, byte index) throws IOException {
-        if (conn.p.get_ngoc() < 10_000) {
-            Service.send_notice_box(conn, "Không đủ 10k ngọc");
+        if (conn.p.get_ngoc() < MedalRules.CHANGE_LINE_GEM_COST) {
+            Service.send_notice_box(conn, "Không đủ " + MedalRules.CHANGE_LINE_GEM_COST + " ngọc");
             return;
         }
-        Item3 it_process = null;
-        for (int i = 0; i < conn.p.item.bag3.length; i++) {
-            Item3 it = conn.p.item.bag3[i];
-            if (it != null && it.type == 16) {
-                if (index == 0) {
-                    it_process = it;
-                    break;
-                }
-                index--;
-            }
-        }
+        List<Item3> medals = getMedalsForLineChange(conn);
+        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
         if (it_process != null) {
             Option[] process = new Option[2];
             for (int i = 0; i < it_process.op.size(); i++) {
@@ -3844,37 +3883,36 @@ public class MenuController {
                     }
                 }
             }
+            if (process[0] == null) {
+                Service.send_notice_box(conn, "Mề đay không có dòng % sát thương để đổi");
+                return;
+            }
+            byte classPercent = MedalRules.percentDamageOptionForClass(conn.p.clazz);
             if (process[0] != null) {
-                process[0].id = (byte) Util.random(7, 12);
+                process[0].id = Util.random(2) == 0 ? (byte) 7 : classPercent;
 //				process[0].setParam(Util.random(1500, 5000));
                 process[0].setParam(process[0].getParam(0) + Util.random(50, 100));
             }
             if (process[1] != null) {
-                process[1].id = (byte) Util.random(7, 12);
+                process[1].id = Util.random(2) == 0 ? (byte) 7 : classPercent;
 //				process[1].setParam(Util.random(1500, 5000));
                 process[1].setParam(process[1].getParam(0) + Util.random(50, 100));
             }
+            conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
             Service.send_notice_box(conn, "Thành công");
             conn.p.item.char_inventory(3);
+            Service.send_wear(conn.p);
+            Service.send_char_main_in4(conn.p);
         }
     }
 
     private static void Menu_ThayDongMeDay(Session conn, byte index) throws IOException {
-        if (conn.p.get_ngoc() < 10_000) {
-            Service.send_notice_box(conn, "Không đủ 10k ngọc");
+        if (conn.p.get_ngoc() < MedalRules.CHANGE_LINE_GEM_COST) {
+            Service.send_notice_box(conn, "Không đủ " + MedalRules.CHANGE_LINE_GEM_COST + " ngọc");
             return;
         }
-        Item3 it_process = null;
-        for (int i = 0; i < conn.p.item.bag3.length; i++) {
-            Item3 it = conn.p.item.bag3[i];
-            if (it != null && it.type == 16) {
-                if (index == 0) {
-                    it_process = it;
-                    break;
-                }
-                index--;
-            }
-        }
+        List<Item3> medals = getMedalsForLineChange(conn);
+        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
         if (it_process != null) {
             Option process = null;
             for (int i = 0; i < it_process.op.size(); i++) {
@@ -3886,14 +3924,32 @@ public class MenuController {
                     }
                 }
             }
+            if (process == null) {
+                Service.send_notice_box(conn, "Mề đay không có dòng sát thương để đổi");
+                return;
+            }
             if (process != null) {
-                process.id = (byte) Util.random(5);
+                byte classDamage = MedalRules.flatDamageOptionForClass(conn.p.clazz);
+                process.id = Util.random(2) == 0 ? (byte) 0 : classDamage;
                 //process.setParam(Util.random(100,600));
                 process.setParam(process.getParam(0) + Util.random(10, 30));
             }
+            conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
             Service.send_notice_box(conn, "Thành công");
             conn.p.item.char_inventory(3);
+            Service.send_wear(conn.p);
+            Service.send_char_main_in4(conn.p);
         }
+    }
+
+    private static List<Item3> getMedalsForLineChange(Session conn) {
+        List<Item3> medals = new ArrayList<>();
+        for (Item3 item : conn.p.item.bag3) {
+            if (item != null && item.type == 16) medals.add(item);
+        }
+        Item3 equipped = conn.p.item.wear[12];
+        if (equipped != null && equipped.type == 16) medals.add(equipped);
+        return medals;
     }
 
     private static void Menu_Wedding(Session conn, byte index) throws IOException {
@@ -4002,10 +4058,20 @@ public class MenuController {
             Option op_change = conn.p.it_change_op.op.get(conn.p.it_change_op_index);
             if (index == 0) {
                 if (op_change.id < 5) {
-                    op_change.id = (byte) Util.random(5);
+                    if (conn.p.it_change_op.type == 16) {
+                        byte classDamage = MedalRules.flatDamageOptionForClass(conn.p.clazz);
+                        op_change.id = Util.random(2) == 0 ? (byte) 0 : classDamage;
+                    } else {
+                        op_change.id = (byte) Util.random(5);
+                    }
 
                 } else if (op_change.id < 12) {
-                    op_change.id = (byte) Util.random(7, 12);
+                    if (conn.p.it_change_op.type == 16) {
+                        byte classPercent = MedalRules.percentDamageOptionForClass(conn.p.clazz);
+                        op_change.id = Util.random(2) == 0 ? (byte) 7 : classPercent;
+                    } else {
+                        op_change.id = (byte) Util.random(7, 12);
+                    }
 
                 } else if (op_change.id < 16) {
                     op_change.id = (byte) Util.random(14, 16);

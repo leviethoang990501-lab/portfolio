@@ -14,8 +14,8 @@ public class Pet {
     public static final byte TYPE_DAI_BANG = 3;
     public static final short ID_DAI_BANG = 3269;
     public static final long OWL_SLEEP_DURATION_MS = 10_000L;
-    public static final int EAGLE_GOLD_MIN = 100;
-    public static final int EAGLE_GOLD_MAX = 3000;
+    public static final int EAGLE_GOLD_MIN = 2_000;
+    public static final int EAGLE_GOLD_MAX = 60_000;
 
     public static String[] name_template = new String[]{"Cú", "Dơi", "Sói", "Đại Bàng", "Khỉ", "Rồng lửa", "Thỏ",
         "Phượng hoàng băng", "Zabivaka", "Bóng ma", "Dê con", "Yêu tinh", "Thiên thần", "Sao la"};
