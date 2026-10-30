@@ -27,7 +27,7 @@ CREATE TABLE `account` (
   `user` varchar(255) DEFAULT NULL,
   `pass` varchar(255) DEFAULT NULL,
   `char` varchar(255) DEFAULT '[]',
-  `status` tinyint NOT NULL DEFAULT '1',
+  `status` tinyint NOT NULL DEFAULT '0',
   `lock` tinyint NOT NULL DEFAULT '0',
   `coin` int NOT NULL DEFAULT '0',
   `phone` varchar(255) DEFAULT '0',

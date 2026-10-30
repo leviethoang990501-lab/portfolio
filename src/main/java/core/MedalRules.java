@@ -31,6 +31,37 @@ public final class MedalRules {
         return clazz >= 0 ? FLAT_DAMAGE_OPTIONS[clazz] : -1;
     }
 
+    public static byte percentDamageOptionForMedal(short medalId) {
+        int clazz = classForMedal(medalId);
+        return clazz >= 0 ? PERCENT_DAMAGE_OPTIONS[clazz] : -1;
+    }
+
+    /**
+     * Returns the other valid flat-damage line for this medal. A medal can
+     * switch between physical damage (0) and its own elemental damage line.
+     */
+    public static byte alternateFlatDamageOption(Item3 item, int currentOptionId) {
+        if (item == null || item.type != 16) return -1;
+        int current = Byte.toUnsignedInt((byte) currentOptionId);
+        if (current < 0 || current > 4) return -1;
+        byte elemental = flatDamageOptionForMedal(item.id);
+        if (elemental < 0) return -1;
+        return current == 0 ? elemental : (byte) 0;
+    }
+
+    /**
+     * Returns the other valid percent-damage line for this medal. A medal can
+     * switch between physical damage percent (7) and its own elemental line.
+     */
+    public static byte alternatePercentDamageOption(Item3 item, int currentOptionId) {
+        if (item == null || item.type != 16) return -1;
+        int current = Byte.toUnsignedInt((byte) currentOptionId);
+        if (current < 7 || current > 11) return -1;
+        byte elemental = percentDamageOptionForMedal(item.id);
+        if (elemental < 0) return -1;
+        return current == 7 ? elemental : (byte) 7;
+    }
+
     public static boolean canWear(Item3 item, byte clazz) {
         if (item == null || item.type != 16 || !isClassMedal(item.id)) return true;
         return item.id == medalIdForClass(clazz);
@@ -69,7 +100,7 @@ public final class MedalRules {
         return clazz >= 0 && clazz < MEDAL_IDS.length;
     }
 
-    private static boolean isClassMedal(short id) {
+    public static boolean isClassMedal(short id) {
         return classForMedal(id) >= 0;
     }
 

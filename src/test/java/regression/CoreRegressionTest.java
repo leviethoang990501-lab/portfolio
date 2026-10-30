@@ -4,12 +4,16 @@ import client.Pet;
 import core.CharacterDefaults;
 import core.EquipmentRules;
 import core.SkillRules;
+import core.TestTopUpRules;
 import core.UpgradeRules;
 import core.Khu2Rules;
 import core.ExpRules;
 import core.BagUpgradeRules;
 import core.GameSrc;
 import core.MedalRules;
+import io.Message;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -23,7 +27,7 @@ import template.Skill;
 public final class CoreRegressionTest {
     private static int checks;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         testNewCharacterDefaults();
         testEquipmentSlots();
         testEquipmentEligibility();
@@ -34,7 +38,30 @@ public final class CoreRegressionTest {
         testDropPoolFallback();
         testSkillDefaults();
         testPetCatalog();
+        testTestTopUpRules();
+        testAllEquipmentOptionsAreSent();
         System.out.println("PASS - " + checks + " regression checks");
+    }
+
+    private static void testAllEquipmentOptionsAreSent() throws Exception {
+        Item3 item = new Item3();
+        item.tier = 0;
+        item.op = new java.util.ArrayList<>();
+        int[] optionIds = new int[]{1, 2, 3, 4, 8, 9, 10, 11};
+        for (int optionId : optionIds) {
+            item.op.add(new template.Option(optionId, optionId * 10));
+        }
+
+        Message message = new Message(0);
+        item.writeItemOptions(message, (byte) 0);
+        DataInputStream input = new DataInputStream(new ByteArrayInputStream(message.getData()));
+        check(input.readUnsignedByte() == optionIds.length, "all elemental equipment options are sent");
+        for (int optionId : optionIds) {
+            check(input.readUnsignedByte() == optionId, "equipment option id " + optionId + " is sent");
+            check(input.readInt() == optionId * 10, "equipment option value " + optionId + " is sent");
+        }
+        check(input.available() == 0, "equipment option packet has matching count");
+        message.cleanup();
     }
 
     private static void testNewCharacterDefaults() {
@@ -135,6 +162,25 @@ public final class CoreRegressionTest {
         check(MedalRules.percentDamageOptionForClass((byte) 1) == 11, "assassin medal percent is poison");
         check(MedalRules.percentDamageOptionForClass((byte) 2) == 8, "mage medal percent is ice");
         check(MedalRules.percentDamageOptionForClass((byte) 3) == 10, "archer medal percent is electric");
+        check(MedalRules.percentDamageOptionForMedal((short) 4587) == 9, "warrior medal percent mapping");
+        check(MedalRules.percentDamageOptionForMedal((short) 4588) == 8, "mage medal percent mapping");
+        check(MedalRules.percentDamageOptionForMedal((short) 4589) == 11, "assassin medal percent mapping");
+        check(MedalRules.percentDamageOptionForMedal((short) 4590) == 10, "archer medal percent mapping");
+        Item3 warriorMedal = new Item3();
+        warriorMedal.id = 4587;
+        warriorMedal.type = 16;
+        check(MedalRules.alternateFlatDamageOption(warriorMedal, 2) == 0,
+                "warrior elemental damage changes to physical");
+        check(MedalRules.alternateFlatDamageOption(warriorMedal, 0) == 2,
+                "warrior physical damage changes to fire");
+        check(MedalRules.alternatePercentDamageOption(warriorMedal, 9) == 7,
+                "warrior fire percent changes to physical percent");
+        check(MedalRules.alternatePercentDamageOption(warriorMedal, 7) == 9,
+                "warrior physical percent changes to fire percent");
+        check(MedalRules.alternateFlatDamageOption(warriorMedal, 2) != 2,
+                "flat damage reroll cannot return the same line");
+        check(MedalRules.alternatePercentDamageOption(warriorMedal, 9) != 9,
+                "percent damage reroll cannot return the same line");
         check(MedalRules.CHANGE_LINE_GEM_COST == 100, "medal line change costs 100 gems");
     }
 
@@ -235,6 +281,17 @@ public final class CoreRegressionTest {
         check(types.size() == 12, "full test pet catalog");
         check(Pet.get_pet((short) 2943).isOwl(), "owl feature identity");
         check(Pet.get_pet(Pet.ID_DAI_BANG).isEagle(), "eagle feature identity");
+    }
+
+    private static void testTestTopUpRules() {
+        check(TestTopUpRules.isValidAmount(1_000), "minimum test top-up amount");
+        check(TestTopUpRules.gemsFor(1_000) == 1, "test top-up rate 1,000 VND per gem");
+        check(TestTopUpRules.gemsFor(50_000) == 50, "test top-up conversion");
+        check(!TestTopUpRules.isValidAmount(999), "reject test top-up below minimum");
+        check(!TestTopUpRules.isValidAmount(1_500), "reject non-multiple test top-up");
+        check(!TestTopUpRules.isValidAmount(1_000_001_000L), "reject test top-up above maximum");
+        check(TestTopUpRules.canAddGems(1_999_999_999, 1), "allow gem balance at cap");
+        check(!TestTopUpRules.canAddGems(2_000_000_000, 1), "reject gem balance overflow");
     }
 
     private static Skill skillWithLevels(int count) {

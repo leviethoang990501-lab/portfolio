@@ -441,6 +441,10 @@ public class Player {
                 if (jsar2.size() == 11) {
                     temp.time_use = Long.parseLong(jsar2.get(10).toString());
                 }
+                if (Manager.isTimedHalloweenEquipment(temp.id)
+                        && temp.time_use > 0 && temp.time_use <= System.currentTimeMillis()) {
+                    continue;
+                }
                 item.bag3[i] = temp;
             }
             jsar.clear();
@@ -481,6 +485,13 @@ public class Player {
                 }
                 temp.time_use = 0;
                 byte savedSlot = Byte.parseByte(jsar2.get(9).toString());
+                if (jsar2.size() >= 11) {
+                    temp.time_use = Long.parseLong(jsar2.get(10).toString());
+                }
+                if (Manager.isTimedHalloweenEquipment(temp.id)
+                        && temp.time_use > 0 && temp.time_use <= System.currentTimeMillis()) {
+                    continue;
+                }
                 int slot = EquipmentRules.wearSlot(temp.type, savedSlot);
                 if (slot >= 0 && slot < item.wear.length) item.wear[slot] = temp;
             }
@@ -569,6 +580,10 @@ public class Player {
                 if (jsar2.size() == 11) {
                     temp.time_use = Long.parseLong(jsar2.get(10).toString());
                 }
+                if (Manager.isTimedHalloweenEquipment(temp.id)
+                        && temp.time_use > 0 && temp.time_use <= System.currentTimeMillis()) {
+                    continue;
+                }
                 item.box3[i] = temp;
             }
             jsar.clear();
@@ -595,7 +610,7 @@ public class Player {
                 Session.players_off.remove(this.name);
                 t_off /= 60_000;
                 if (t_off > 0) {
-                    t_off /= 5;
+                    t_off /= Pet.OFFLINE_HUNGER_INTERVAL_MINUTES;
                 }
             }
             if (jsar == null) {
@@ -1020,6 +1035,7 @@ public class Player {
                     }
                     jsar2.add(jsar3);
                     jsar2.add(i);
+                    jsar2.add(temp.time_use);
                     jsar.add(jsar2);
                 }
             }
@@ -2183,20 +2199,62 @@ public class Player {
     }
 
     public void update_wings_time() throws IOException {
-        boolean check = false;
+        boolean inventoryChanged = false;
+        boolean chestChanged = false;
+        boolean wearChanged = false;
+        boolean halloweenExpired = false;
+        long now = System.currentTimeMillis();
         for (int i = 0; i < item.bag3.length; i++) {
             Item3 it = item.bag3[i];
-            if (it != null && it.type == 7 && it.time_use != 0) {
-                if ((it.time_use - System.currentTimeMillis()) < 0) {
+            if (it == null || it.time_use == 0 || it.time_use > now) {
+                continue;
+            }
+            if (Manager.isTimedHalloweenEquipment(it.id)) {
+                item.bag3[i] = null;
+                inventoryChanged = true;
+                halloweenExpired = true;
+            } else if (it.type == 7) {
                     it.time_use = 0;
-                    check = true;
-                }
+                    inventoryChanged = true;
             }
         }
-        if (check) {
+
+        for (int i = 0; i < item.box3.length; i++) {
+            Item3 it = item.box3[i];
+            if (it != null && Manager.isTimedHalloweenEquipment(it.id)
+                    && it.time_use > 0 && it.time_use <= now) {
+                item.box3[i] = null;
+                chestChanged = true;
+                halloweenExpired = true;
+            }
+        }
+
+        for (int i = 0; i < item.wear.length; i++) {
+            Item3 it = item.wear[i];
+            if (it != null && Manager.isTimedHalloweenEquipment(it.id)
+                    && it.time_use > 0 && it.time_use <= now) {
+                item.wear[i] = null;
+                wearChanged = true;
+                halloweenExpired = true;
+            }
+        }
+
+        if (inventoryChanged) {
             item.char_inventory(4);
             item.char_inventory(7);
             item.char_inventory(3);
+        }
+        if (chestChanged) {
+            item.char_chest(3);
+        }
+        if (wearChanged) {
+            fashion = Part_fashion.get_part(this);
+            Service.send_wear(this);
+            Service.send_char_main_in4(this);
+            MapService.update_in4_2_other_inside(map, this);
+        }
+        if (halloweenExpired) {
+            Service.send_notice_nobox_white(conn, "Trang bị Halloween đã hết hạn và được thu hồi");
         }
     }
 
@@ -2357,6 +2415,7 @@ public class Player {
                                 }
                                 jsar2.add(jsar3);
                                 jsar2.add(i);
+                                jsar2.add(temp.time_use);
                                 jsar.add(jsar2);
                             }
                         }

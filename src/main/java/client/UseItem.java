@@ -1125,10 +1125,19 @@ public class UseItem {
                 return;
             }
             if (temp3.time_use > 0) {
-                long time_ = temp3.time_use - System.currentTimeMillis();
-                time_ /= 60_000;
-                Service.send_notice_nobox_white(conn, "Sử dụng sau " + ((time_ > 0) ? time_ : 1) + "p nữa");
-                return;
+                if (Manager.isTimedHalloweenEquipment(temp3.id)) {
+                    if (temp3.time_use <= System.currentTimeMillis()) {
+                        conn.p.item.bag3[id] = null;
+                        conn.p.item.char_inventory(3);
+                        Service.send_notice_nobox_white(conn, "Trang bị Halloween đã hết hạn");
+                        return;
+                    }
+                } else {
+                    long time_ = temp3.time_use - System.currentTimeMillis();
+                    time_ /= 60_000;
+                    Service.send_notice_nobox_white(conn, "Sử dụng sau " + ((time_ > 0) ? time_ : 1) + "p nữa");
+                    return;
+                }
             }
             if (temp3.islock) {
                 switch (temp3.type) {

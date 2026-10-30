@@ -1027,7 +1027,10 @@ public class Process_Yes_no_box {
                         Service.send_notice_box(conn, "Bạn vẫn còn lượt đi, Đi hết đi rồi mua!");
                         return;
                     }
+                    conn.p.update_ngoc(-200);
                     conn.p.point_active[0] += 1;
+                    conn.p.item.char_inventory(5);
+                    Service.send_notice_box(conn, "Mua thêm 1 lượt phó bản thành công (-200 ngọc)");
                     break;
                 }
                 case 100: {

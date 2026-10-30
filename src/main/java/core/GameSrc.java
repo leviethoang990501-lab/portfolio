@@ -1946,13 +1946,13 @@ public class GameSrc {
                         m.writer().writeByte(it_b.color);
                         int count = 0;
                         for (Option o : it_b.op) {
-                            if (o != null && !Item3.isHiddenElementalOption(o.id, p0.clazz)) {
+                            if (o != null) {
                                 count++;
                             }
                         }
                         m.writer().writeByte(count + 1);
                         for (Option o : it_b.op) {
-                            if (o != null && !Item3.isHiddenElementalOption(o.id, p0.clazz)) {
+                            if (o != null) {
                                 m.writer().writeByte(o.id);
                                 m.writer().writeInt(o.getParam(it_b.tier));
                             }
@@ -2008,13 +2008,13 @@ public class GameSrc {
                         m.writer().writeByte(it_in_bag.color);
                         int count = 0;
                         for (Option o : it_in_bag.op) {
-                            if (o != null && !Item3.isHiddenElementalOption(o.id, p0.clazz)) {
+                            if (o != null) {
                                 count++;
                             }
                         }
                         m.writer().writeByte(count + 1);
                         for (Option o : it_in_bag.op) {
-                            if (o != null && !Item3.isHiddenElementalOption(o.id, p0.clazz)) {
+                            if (o != null) {
                                 m.writer().writeByte(o.id);
                                 m.writer().writeInt(o.getParam(it_in_bag.tier));
                             }

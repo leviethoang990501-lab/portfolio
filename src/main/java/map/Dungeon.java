@@ -24,6 +24,7 @@ public class Dungeon {
     public static List<BXH_Dungeon_Finished> bxh_time_complete = new ArrayList<>();
     public Map template;
     public long time_live;
+    private long finishAt;
     public int state;
     private int mob_speed;
     private int wave;
@@ -33,6 +34,7 @@ public class Dungeon {
     private int id_mob_in_wave;
     public int index_mob;
     private int hp;
+    private boolean completed;
     public String name_party;
     private byte mode_now;
     private List<Mob_Dungeon> mobs;
@@ -110,6 +112,8 @@ public class Dungeon {
                     this.num_mob = num_mob_max;
                     mobs.clear();
                     this.state = 8;
+                    this.completed = true;
+                    this.finishAt = System.currentTimeMillis() + 30_000L;
                     // cal prime
                     synchronized (Dungeon.bxh_time_complete) {
                         BXH_Dungeon_Finished bxh = new BXH_Dungeon_Finished(this.name_party, this.getTime_live());
@@ -207,7 +211,7 @@ public class Dungeon {
                     Player p0 = template.players.get(i);
                     
                      Player p = p0;
-                 if (p.quest_daily[0] == 6 && p.quest_daily[3] < p.quest_daily[4]) {
+                 if (this.completed && p.quest_daily[0] == 6 && p.quest_daily[3] < p.quest_daily[4]) {
                         p.quest_daily[3]++;
                     }
                     
@@ -230,13 +234,7 @@ public class Dungeon {
                 this.template.stop_map();
                 this.template.d = null;
                 DungeonManager.remove_list(this);
-            } else if (this.state >= 8 && this.state <= 38) {
-                if (this.state == 38) {
-                    this.state = -2;
-                }
-                this.state++;
-                this.state = -2;
-            } else if (this.state == -2) {
+            } else if (this.state == 8 && System.currentTimeMillis() >= this.finishAt) {
                 this.state = 7;
             }
         } catch (IOException e) {

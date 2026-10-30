@@ -2052,7 +2052,9 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                                 m_atk.writer().writeInt(0); // dame plus
                                 MapService.send_msg_player_inside(map, conn.p, m_atk, true);
                                 m_atk.cleanup();
-                                pet_di_buon.update_all(conn.p);
+                                if (pet_di_buon.hp > 0) {
+                                    pet_di_buon.update_all(conn.p);
+                                }
                             }
                         } else {
                             Mob_in_map mob_target = MapService.get_mob_by_index(map, n2);
@@ -2063,15 +2065,13 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                                     conn.p.detu.updateAI(map);
                                 }
                                 MapService.fire_mob(map, mob_target, conn.p, index_skill, dame);
-                            } else if (conn.p.map.map_id == 48) {
-                                } else if (conn.p.map.map_id == 48) {
-    Dungeon d = DungeonManager.get_list(conn.p.party != null ? conn.p.party.getLeader().name : conn.p.name);
-                                if (d != null) {
-                                    Mob_Dungeon mod_target_dungeon = d.get_mob(n2);
+                            } else if (conn.p.map.map_id == 48 && conn.p.dungeon != null) {
+                                Dungeon dungeon = conn.p.dungeon;
+                                Mob_Dungeon mod_target_dungeon = dungeon.get_mob(n2);
                                     if (mod_target_dungeon != null) {
-                                        d.fire_mob(map, mod_target_dungeon, conn.p, index_skill, (int) Math.min(dame, Integer.MAX_VALUE));
+                                    dungeon.fire_mob(map, mod_target_dungeon, conn.p, index_skill,
+                                            (int) Math.min(dame, Integer.MAX_VALUE));
                                     }
-                                }
                             } else if (Map.is_map_chiem_mo(conn.p.map, true) && conn.p.myclan != null) {
                                 Mob_MoTaiNguyen temp_mob = conn.p.myclan.get_mo_tai_nguyen(n2);
                                 if (temp_mob == null) {

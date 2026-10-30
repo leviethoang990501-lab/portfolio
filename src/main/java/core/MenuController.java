@@ -240,7 +240,8 @@ public class MenuController {
                 break;
             }
             case -49: {
-                menu = new String[]{"Phỉ nhổ", "Tu Tiên", "Luyện Thể", "Đả Thông Kinh Mạch", "Thông Tin Cá Nhân", "Nhận Quà Mốc Nạp" };
+                menu = new String[]{"Phỉ nhổ", "Tu Tiên", "Luyện Thể", "Đả Thông Kinh Mạch",
+                    "Thông Tin Cá Nhân", "Nhận Quà Mốc Nạp", "Nạp thử ngọc"};
                 break;
             }
             case -93: { // cây lồng đèn
@@ -1351,7 +1352,7 @@ public class MenuController {
             }
             case 2: {
                 if (conn.p.get_ngoc() >= 5) {
-                    conn.p.pet_di_buon.update_hp(conn.p, 100);
+                    conn.p.pet_di_buon.update_hp(conn.p, 100_000);
                 } else {
                     Service.send_notice_box(conn, "Không đủ 5 ngọc");
                 }
@@ -1846,7 +1847,12 @@ public class MenuController {
             case 5: { 
                 send_menu_select(conn, 129, new String[]{"Nhận Mốc", "Hướng Dẫn", "Tổng Nạp"});
                 break;
-            }      
+            }
+            case 6: {
+                Service.send_box_input_text(conn, 28, "Nạp thử ngọc - 1.000đ = 1 ngọc",
+                        new String[]{"Nhập số tiền VNĐ (bội số 1.000)"});
+                break;
+            }
             default: {
                 Service.send_notice_box(conn, "Chưa có chức năng");
                 break;
@@ -2163,7 +2169,7 @@ public class MenuController {
                 break;
             }
             case 8: {
-                Service.send_box_input_yesno(conn, 127, "Bạn có muốn mua lượt đi phó bản phí là 2000 ngọc");
+                Service.send_box_input_yesno(conn, 127, "Bạn có muốn mua 1 lượt đi phó bản với giá 200 ngọc?");
                 break;
             }
             default: {
@@ -3864,91 +3870,88 @@ public class MenuController {
     }
 
     private static void Menu_ThayDongMeDay_percent(Session conn, byte index) throws IOException {
+        List<Item3> medals = getMedalsForLineChange(conn);
+        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
+        if (it_process == null) {
+            Service.send_notice_box(conn, "Không tìm thấy mề đay đã chọn");
+            return;
+        }
+        if (it_process.op == null || it_process.op.isEmpty()) {
+            Service.send_notice_box(conn, "Mề đay không có chỉ số để đổi");
+            return;
+        }
         if (conn.p.get_ngoc() < MedalRules.CHANGE_LINE_GEM_COST) {
             Service.send_notice_box(conn, "Không đủ " + MedalRules.CHANGE_LINE_GEM_COST + " ngọc");
             return;
         }
-        List<Item3> medals = getMedalsForLineChange(conn);
-        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
-        if (it_process != null) {
-            Option[] process = new Option[2];
-            for (int i = 0; i < it_process.op.size(); i++) {
-                if (it_process.op.get(i).id >= 7 && it_process.op.get(i).id <= 11) {
-                    if (process[0] == null) {
-                        process[0] = it_process.op.get(i);
-                    } else if (process[1] == null) {
-                        process[1] = it_process.op.get(i);
-                    } else {
-                        break;
-                    }
-                }
+        int changed = 0;
+        for (Option option : it_process.op) {
+            byte newId = MedalRules.alternatePercentDamageOption(it_process, option.id);
+            if (newId >= 0) {
+                option.id = newId;
+                option.setParam(option.getParam(0) + Util.random(50, 100));
+                changed++;
+                if (changed == 2) break;
             }
-            if (process[0] == null) {
-                Service.send_notice_box(conn, "Mề đay không có dòng % sát thương để đổi");
-                return;
-            }
-            byte classPercent = MedalRules.percentDamageOptionForClass(conn.p.clazz);
-            if (process[0] != null) {
-                process[0].id = Util.random(2) == 0 ? (byte) 7 : classPercent;
-//				process[0].setParam(Util.random(1500, 5000));
-                process[0].setParam(process[0].getParam(0) + Util.random(50, 100));
-            }
-            if (process[1] != null) {
-                process[1].id = Util.random(2) == 0 ? (byte) 7 : classPercent;
-//				process[1].setParam(Util.random(1500, 5000));
-                process[1].setParam(process[1].getParam(0) + Util.random(50, 100));
-            }
-            conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
-            Service.send_notice_box(conn, "Thành công");
-            conn.p.item.char_inventory(3);
-            Service.send_wear(conn.p);
-            Service.send_char_main_in4(conn.p);
         }
+        if (changed == 0) {
+            Service.send_notice_box(conn, "Mề đay không có dòng % sát thương để đổi");
+            return;
+        }
+        conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
+        Service.send_notice_box(conn, "Đổi dòng % sát thương thành công (-"
+                + MedalRules.CHANGE_LINE_GEM_COST + " ngọc)");
+        conn.p.item.char_inventory(3);
+        Service.send_wear(conn.p);
+        Service.send_char_main_in4(conn.p);
     }
 
     private static void Menu_ThayDongMeDay(Session conn, byte index) throws IOException {
+        List<Item3> medals = getMedalsForLineChange(conn);
+        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
+        if (it_process == null) {
+            Service.send_notice_box(conn, "Không tìm thấy mề đay đã chọn");
+            return;
+        }
+        if (it_process.op == null || it_process.op.isEmpty()) {
+            Service.send_notice_box(conn, "Mề đay không có chỉ số để đổi");
+            return;
+        }
         if (conn.p.get_ngoc() < MedalRules.CHANGE_LINE_GEM_COST) {
             Service.send_notice_box(conn, "Không đủ " + MedalRules.CHANGE_LINE_GEM_COST + " ngọc");
             return;
         }
-        List<Item3> medals = getMedalsForLineChange(conn);
-        Item3 it_process = index >= 0 && index < medals.size() ? medals.get(index) : null;
-        if (it_process != null) {
-            Option process = null;
-            for (int i = 0; i < it_process.op.size(); i++) {
-                if (it_process.op.get(i).id < 5) {
-                    if (process == null) {
-                        process = it_process.op.get(i);
-                    } else {
-                        break;
-                    }
-                }
+        Option process = null;
+        byte newId = -1;
+        for (Option option : it_process.op) {
+            byte candidate = MedalRules.alternateFlatDamageOption(it_process, option.id);
+            if (candidate >= 0) {
+                process = option;
+                newId = candidate;
+                break;
             }
-            if (process == null) {
-                Service.send_notice_box(conn, "Mề đay không có dòng sát thương để đổi");
-                return;
-            }
-            if (process != null) {
-                byte classDamage = MedalRules.flatDamageOptionForClass(conn.p.clazz);
-                process.id = Util.random(2) == 0 ? (byte) 0 : classDamage;
-                //process.setParam(Util.random(100,600));
-                process.setParam(process.getParam(0) + Util.random(10, 30));
-            }
-            conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
-            Service.send_notice_box(conn, "Thành công");
-            conn.p.item.char_inventory(3);
-            Service.send_wear(conn.p);
-            Service.send_char_main_in4(conn.p);
         }
+        if (process == null) {
+            Service.send_notice_box(conn, "Mề đay không có dòng sát thương để đổi");
+            return;
+        }
+        process.id = newId;
+        process.setParam(process.getParam(0) + Util.random(10, 30));
+        conn.p.update_ngoc(-MedalRules.CHANGE_LINE_GEM_COST);
+        Service.send_notice_box(conn, "Đổi dòng sát thương thành công (-"
+                + MedalRules.CHANGE_LINE_GEM_COST + " ngọc)");
+        conn.p.item.char_inventory(3);
+        Service.send_wear(conn.p);
+        Service.send_char_main_in4(conn.p);
     }
 
     private static List<Item3> getMedalsForLineChange(Session conn) {
         List<Item3> medals = new ArrayList<>();
         for (Item3 item : conn.p.item.bag3) {
-            if (item != null && item.type == 16) medals.add(item);
+            if (item != null && item.type == 16 && MedalRules.isClassMedal(item.id)) medals.add(item);
         }
         Item3 equipped = conn.p.item.wear[12];
-        if (equipped != null && equipped.type == 16) medals.add(equipped);
+        if (equipped != null && equipped.type == 16 && MedalRules.isClassMedal(equipped.id)) medals.add(equipped);
         return medals;
     }
 
@@ -4059,16 +4062,24 @@ public class MenuController {
             if (index == 0) {
                 if (op_change.id < 5) {
                     if (conn.p.it_change_op.type == 16) {
-                        byte classDamage = MedalRules.flatDamageOptionForClass(conn.p.clazz);
-                        op_change.id = Util.random(2) == 0 ? (byte) 0 : classDamage;
+                        byte newId = MedalRules.alternateFlatDamageOption(conn.p.it_change_op, op_change.id);
+                        if (newId < 0) {
+                            Service.send_notice_box(conn, "Dòng sát thương mề đay không hợp lệ");
+                            return;
+                        }
+                        op_change.id = newId;
                     } else {
                         op_change.id = (byte) Util.random(5);
                     }
 
                 } else if (op_change.id < 12) {
                     if (conn.p.it_change_op.type == 16) {
-                        byte classPercent = MedalRules.percentDamageOptionForClass(conn.p.clazz);
-                        op_change.id = Util.random(2) == 0 ? (byte) 7 : classPercent;
+                        byte newId = MedalRules.alternatePercentDamageOption(conn.p.it_change_op, op_change.id);
+                        if (newId < 0) {
+                            Service.send_notice_box(conn, "Dòng % sát thương mề đay không hợp lệ");
+                            return;
+                        }
+                        op_change.id = newId;
                     } else {
                         op_change.id = (byte) Util.random(7, 12);
                     }

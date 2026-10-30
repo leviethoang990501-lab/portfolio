@@ -16,6 +16,8 @@ public class Pet {
     public static final long OWL_SLEEP_DURATION_MS = 10_000L;
     public static final int EAGLE_GOLD_MIN = 2_000;
     public static final int EAGLE_GOLD_MAX = 60_000;
+    public static final long HUNGER_INTERVAL_MS = 150_000L;
+    public static final int OFFLINE_HUNGER_INTERVAL_MINUTES = 4;
 
     public static String[] name_template = new String[]{"Cú", "Dơi", "Sói", "Đại Bàng", "Khỉ", "Rồng lửa", "Thỏ",
         "Phượng hoàng băng", "Zabivaka", "Bóng ma", "Dê con", "Yêu tinh", "Thiên thần", "Sao la"};
@@ -61,6 +63,7 @@ public class Pet {
         is_follow = Byte.parseByte(js.get(13).toString()) == 1;
         is_hatch = Byte.parseByte(js.get(14).toString()) == 1;
         time_born = Long.parseLong(js.get(15).toString());
+        time_eat = System.currentTimeMillis() + HUNGER_INTERVAL_MS;
         op = new ArrayList<>();
         JSONArray js2 = (JSONArray) JSONValue.parse(js.get(16).toString());
         for (int i = 0; i < js2.size(); i++) {
@@ -91,6 +94,7 @@ public class Pet {
         temp.is_follow = false;
         temp.is_hatch = true;
         temp.time_born = System.currentTimeMillis() + 1000L * 60 * 10;
+        temp.time_eat = System.currentTimeMillis() + HUNGER_INTERVAL_MS;
         temp.op = new ArrayList<>();
         byte[] id_ = new byte[]{23, 24, 25, 26};
         int[] param_ = new int[]{1, 1, 1, 1};

@@ -417,8 +417,8 @@ public class Session implements Runnable {
             pass = "hsr_132";
 
             String insertAccount = "INSERT INTO `account` "
-                    + "(`user`, `pass`, `char`, `lock`, `coin`, `ip`, `tongnap`) "
-                    + "VALUES (?, ?, '[]', 0, 0, '0', 0)";
+                    + "(`user`, `pass`, `char`, `status`, `lock`, `coin`, `ip`, `tongnap`) "
+                    + "VALUES (?, ?, '[]', 0, 0, 0, '0', 0)";
             try (Connection connection = SQL.gI().getConnection();
                  PreparedStatement statement = connection.prepareStatement(insertAccount)) {
                 statement.setString(1, user);
@@ -429,6 +429,7 @@ public class Session implements Runnable {
                 noticelogin("Có lỗi xảy ra, hãy thử lại!");
                 return;
             }
+            this.status = 0;
             this.list_char = new String[3];
             for (int i = 0; i < 3; i++) {
                 this.list_char[i] = "";

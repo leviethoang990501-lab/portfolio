@@ -7,7 +7,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
@@ -15,6 +16,7 @@ import core.Log;
 import core.Manager;
 import core.SQL;
 import core.Service;
+import core.TestTopUpRules;
 import core.Util;
 import io.Message;
 import io.Session;
@@ -28,6 +30,7 @@ import template.ItemTemplate3;
 import template.ItemTemplate4;
 import template.ItemTemplate7;
 import template.Level;
+import template.Option;
 
 public class TextFromClient {
 
@@ -187,26 +190,30 @@ public class TextFromClient {
                     Service.send_notice_box(conn, "Tài khoản chưa được kích hoạt, hãy kích hoạt");
                     return;
                 }
-                String text = m2.reader().readUTF();
-                text = text.toLowerCase();
-                Pattern p = Pattern.compile("^[a-zA-Z0-9]{1,15}$");
+                String text = m2.reader().readUTF().trim().toLowerCase(Locale.ROOT);
+                Pattern p = Pattern.compile("^[\\p{L}\\p{N}_-]{1,255}$");
                 if (!p.matcher(text).matches()) {
-                    Service.send_notice_box(conn, "Đã xảy ra lỗi");
+                    Service.send_notice_box(conn,
+                            "Giftcode chỉ được gồm chữ, số, dấu gạch ngang hoặc gạch dưới");
                     return;
                 }
                 for (String txt : conn.p.giftcode) {
-                    txt = txt.toLowerCase();
-                    if (txt.equals((text))) {
+                    if (txt != null && txt.trim().equalsIgnoreCase(text)) {
                         Service.send_notice_box(conn, "Bạn đã nhập giftcode này rồi");
                         return;
                     }
                 }
-                try ( Connection connection = SQL.gI().getConnection();  Statement st = connection.createStatement();  ResultSet rs = st.executeQuery("SELECT * FROM `giftcode` WHERE `giftname` = '" + text + "';")) {
+                String selectGiftCode = "SELECT * FROM `giftcode` WHERE `giftname` = ? LIMIT 1 FOR UPDATE";
+                try (Connection connection = SQL.gI().getConnection();
+                        PreparedStatement st = connection.prepareStatement(selectGiftCode)) {
+                    connection.setAutoCommit(false);
+                    st.setString(1, text);
+                    try (ResultSet rs = st.executeQuery()) {
                     if (!rs.next()) {
-                        Service.send_notice_box(conn, "Giftcode đã được nhập hoặc không tồn tại");
+                        Service.send_notice_box(conn, "Giftcode không tồn tại trong database");
                     } else {
                         int limit = rs.getInt("limit");
-                        String a =  rs.getString("spec");
+                        String a = rs.getString("spec");
                         
                         String[] spec;
                         if (a != null) {
@@ -216,10 +223,10 @@ public class TextFromClient {
                         }
                         if (limit < 1) {
                             Service.send_notice_box(conn, "Đã hết lượt dùng giftcode này");
-                        } else if (conn.p.item.get_bag_able() > 2) {
+                        } else {
                             boolean spec_ = spec.length > 0;
                                 for (int i = 0; i < spec.length; i++) {
-                                    if (spec[i].equals(conn.p.name)) {
+                                    if (spec[i].trim().equalsIgnoreCase(conn.p.name)) {
                                         spec_ = false;
                                         break;
                                     }
@@ -227,54 +234,76 @@ public class TextFromClient {
                             
                             
                             if (spec_) {
-                                Service.send_notice_box(conn, "Giftcode đã được nhập hoặc không tồn tại");
+                                Service.send_notice_box(conn, "Giftcode này không dành cho nhân vật của bạn");
                                 return;
                             }
                             //
-                            conn.p.giftcode.add(text);
-                            JSONArray jsar = (JSONArray) JSONValue.parse(rs.getString("item3"));
-                            for (int i = 0; i < jsar.size(); i++) {
-                                JSONArray jsar2 = (JSONArray) JSONValue.parse(jsar.get(i).toString());
-                                Item3 itbag = new Item3();
-                                short it = Short.parseShort(jsar2.get(0).toString());
-                                itbag.id = it;
-                                itbag.name = ItemTemplate3.item.get(it).getName();
-                                itbag.clazz = ItemTemplate3.item.get(it).getClazz();
-                                itbag.type = ItemTemplate3.item.get(it).getType();
-                                itbag.level = ItemTemplate3.item.get(it).getLevel();
-                                itbag.icon = ItemTemplate3.item.get(it).getIcon();
-                                itbag.op = ItemTemplate3.item.get(it).getOp();
-                                itbag.color = ItemTemplate3.item.get(it).getColor();
-                                itbag.part = ItemTemplate3.item.get(it).getPart();
-                                itbag.tier = 0;
-                                itbag.time_use = 0;
-                                itbag.islock = true;
-                                conn.p.item.add_item_bag3(itbag);
+                            JSONArray item3Rewards = parseGiftCodeArray(rs.getString("item3"), "item3");
+                            JSONArray item4Rewards = parseGiftCodeArray(rs.getString("item4"), "item4");
+                            JSONArray item7Rewards = parseGiftCodeArray(rs.getString("item7"), "item7");
+                            int requiredSlots = validateGiftCodeRewards(item3Rewards, item4Rewards, item7Rewards);
+                            if (conn.p.item.get_bag_able() < requiredSlots) {
+                                Service.send_notice_box(conn, "Hành trang cần trống ít nhất "
+                                        + requiredSlots + " ô để nhận giftcode");
+                                return;
                             }
-                            jsar.clear();
+                            for (int i = 0; i < item3Rewards.size(); i++) {
+                                JSONArray jsar2 = (JSONArray) JSONValue.parse(item3Rewards.get(i).toString());
+                                short it = Short.parseShort(jsar2.get(0).toString());
+                                int quantity = Integer.parseInt(jsar2.get(1).toString());
+                                for (int copy = 0; copy < quantity; copy++) {
+                                    Item3 itbag = new Item3();
+                                    itbag.id = it;
+                                    itbag.name = ItemTemplate3.item.get(it).getName();
+                                    itbag.clazz = ItemTemplate3.item.get(it).getClazz();
+                                    itbag.type = ItemTemplate3.item.get(it).getType();
+                                    itbag.level = ItemTemplate3.item.get(it).getLevel();
+                                    itbag.icon = ItemTemplate3.item.get(it).getIcon();
+                                    itbag.op = new ArrayList<>();
+                                    if (ItemTemplate3.item.get(it).getOp() != null) {
+                                        for (Option option : ItemTemplate3.item.get(it).getOp()) {
+                                            if (option != null) {
+                                                itbag.op.add(new Option(option.id, option.getParam(0)));
+                                            }
+                                        }
+                                    }
+                                    itbag.color = ItemTemplate3.item.get(it).getColor();
+                                    itbag.part = ItemTemplate3.item.get(it).getPart();
+                                    itbag.tier = 0;
+                                    itbag.time_use = 0;
+                                    itbag.islock = true;
+                                    if (!conn.p.item.add_item_bag3(itbag)) {
+                                        throw new IllegalStateException("Không còn ô trống để nhận item3");
+                                    }
+                                }
+                            }
                             //
-                            jsar = (JSONArray) JSONValue.parse(rs.getString("item4"));
-                            for (int i = 0; i < jsar.size(); i++) {
-                                JSONArray jsar2 = (JSONArray) JSONValue.parse(jsar.get(i).toString());
+                            for (int i = 0; i < item4Rewards.size(); i++) {
+                                JSONArray jsar2 = (JSONArray) JSONValue.parse(item4Rewards.get(i).toString());
                                 Item47 itbag = new Item47();
                                 itbag.id = Short.parseShort(jsar2.get(0).toString());
                                 itbag.quantity = Short.parseShort(jsar2.get(1).toString());
+                                if (itbag.id < 0 || itbag.id >= ItemTemplate4.item.size()
+                                        || ItemTemplate4.item.get(itbag.id) == null || itbag.quantity < 1) {
+                                    throw new IllegalArgumentException("Phần thưởng item4 không hợp lệ");
+                                }
                                 itbag.category = 4;
                                 conn.p.item.add_item_bag47(4, itbag);
                             }
-                            jsar.clear();
                             //
-                            jsar = (JSONArray) JSONValue.parse(rs.getString("item7"));
-                            for (int i = 0; i < jsar.size(); i++) {
-                                JSONArray jsar2 = (JSONArray) JSONValue.parse(jsar.get(i).toString());
+                            for (int i = 0; i < item7Rewards.size(); i++) {
+                                JSONArray jsar2 = (JSONArray) JSONValue.parse(item7Rewards.get(i).toString());
                                 Item47 itbag = new Item47();
                                 itbag.id = Short.parseShort(jsar2.get(0).toString());
                                 itbag.quantity = Short.parseShort(jsar2.get(1).toString());
+                                if (itbag.id < 0 || itbag.id >= ItemTemplate7.item.size()
+                                        || ItemTemplate7.item.get(itbag.id) == null || itbag.quantity < 1) {
+                                    throw new IllegalArgumentException("Phần thưởng item7 không hợp lệ");
+                                }
                                 itbag.category = 7;
                                 conn.p.item.add_item_bag47(7, itbag);
 
                             }
-                            jsar.clear();
                             //
                             int vang_up = rs.getInt("vang");
                             int ngoc_up = rs.getInt("ngoc");
@@ -284,13 +313,24 @@ public class TextFromClient {
                             conn.p.item.char_inventory(4);
                             conn.p.item.char_inventory(7);
 
+                            try (PreparedStatement updateLimit = connection.prepareStatement(
+                                    "UPDATE `giftcode` SET `limit` = `limit` - 1 WHERE `id` = ? AND `limit` > 0")) {
+                                updateLimit.setInt(1, rs.getInt("id"));
+                                if (updateLimit.executeUpdate() != 1) {
+                                    Service.send_notice_box(conn, "Giftcode vừa hết lượt sử dụng, hãy thử code khác");
+                                    return;
+                                }
+                            }
+                            conn.p.giftcode.add(text);
+                            connection.commit();
+
                             Service.send_notice_box(conn, "Nhận thành công giftcode");
-                        } else {
-                            Service.send_notice_box(conn, "Hành trang phải trống 3 ô trở lên!");
                         }
                     }
-                } catch (SQLException e) {
+                    }
+                } catch (SQLException | RuntimeException e) {
                     e.printStackTrace();
+                    Service.send_notice_box(conn, "Dữ liệu giftcode trong database không hợp lệ");
                 }
                 break;
             }
@@ -868,10 +908,139 @@ public class TextFromClient {
                 Service.send_notice_box(conn, "Tăng thành công!");
                 break;
             }
+            case 28: {
+                if (size != 1 || conn.p == null) {
+                    return;
+                }
+                String value = m2.reader().readUTF().trim();
+                if (!Util.isnumber(value)) {
+                    Service.send_notice_box(conn, "Số tiền nạp thử phải là số nguyên dương");
+                    return;
+                }
+
+                final long amountVnd;
+                try {
+                    amountVnd = Long.parseLong(value);
+                } catch (NumberFormatException e) {
+                    Service.send_notice_box(conn, "Số tiền nạp thử quá lớn");
+                    return;
+                }
+                if (!TestTopUpRules.isValidAmount(amountVnd)) {
+                    Service.send_notice_box(conn,
+                            "Số tiền phải từ 1.000đ đến 1.000.000.000đ và là bội số của 1.000đ");
+                    return;
+                }
+
+                int gemsToAdd = TestTopUpRules.gemsFor(amountVnd);
+                synchronized (conn.p) {
+                    int currentGems = conn.p.get_ngoc();
+                    if (!TestTopUpRules.canAddGems(currentGems, gemsToAdd)) {
+                        Service.send_notice_box(conn, "Không thể cộng vì số ngọc sẽ vượt giới hạn 2 tỷ");
+                        return;
+                    }
+                    int updatedGems = currentGems + gemsToAdd;
+                    try (Connection connection = SQL.gI().getConnection()) {
+                        connection.setAutoCommit(false);
+                        try {
+                            try (PreparedStatement updateAccount = connection.prepareStatement(
+                                    "UPDATE `account` SET `tiennap` = `tiennap` + ?, "
+                                    + "`tongnap` = `tongnap` + ? WHERE `user` = ? "
+                                    + "AND `tiennap` <= ? AND `tongnap` <= ?")) {
+                                updateAccount.setInt(1, (int) amountVnd);
+                                updateAccount.setInt(2, (int) amountVnd);
+                                updateAccount.setString(3, conn.user);
+                                updateAccount.setInt(4, Integer.MAX_VALUE - (int) amountVnd);
+                                updateAccount.setInt(5, Integer.MAX_VALUE - (int) amountVnd);
+                                if (updateAccount.executeUpdate() != 1) {
+                                    throw new SQLException("Không cập nhật được tổng nạp của tài khoản");
+                                }
+                            }
+                            try (PreparedStatement updatePlayer = connection.prepareStatement(
+                                    "UPDATE `player` SET `kimcuong` = ? WHERE `id` = ?")) {
+                                updatePlayer.setInt(1, updatedGems);
+                                updatePlayer.setInt(2, conn.p.id);
+                                if (updatePlayer.executeUpdate() != 1) {
+                                    throw new SQLException("Không cập nhật được ngọc của nhân vật");
+                                }
+                            }
+                            connection.commit();
+                        } catch (SQLException e) {
+                            connection.rollback();
+                            throw e;
+                        } finally {
+                            connection.setAutoCommit(true);
+                        }
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                        Service.send_notice_box(conn, "Nạp thử thất bại, dữ liệu chưa bị thay đổi");
+                        return;
+                    }
+                    conn.p.update_ngoc(gemsToAdd);
+                }
+
+                conn.p.item.char_inventory(5);
+                Log.gI().add_log(conn.p.name, "Nạp thử " + amountVnd + " VNĐ, nhận "
+                        + gemsToAdd + " ngọc, số dư " + conn.p.get_ngoc() + " ngọc");
+                Service.send_notice_box(conn, "Nạp thử thành công " + Util.number_format(amountVnd)
+                        + "đ\nNhận: " + Util.number_format(gemsToAdd) + " ngọc"
+                        + "\nSố dư: " + Util.number_format(conn.p.get_ngoc()) + " ngọc");
+                break;
+            }
             default: {
                 Service.send_notice_box(conn, "Đã xảy ra lỗi");
                 break;
             }
         }
+    }
+
+    private static JSONArray parseGiftCodeArray(String json, String column) {
+        if (json == null || json.isBlank()) {
+            return new JSONArray();
+        }
+        Object parsed = JSONValue.parse(json);
+        if (!(parsed instanceof JSONArray)) {
+            throw new IllegalArgumentException("Cột " + column + " phải là mảng JSON");
+        }
+        return (JSONArray) parsed;
+    }
+
+    private static int validateGiftCodeRewards(JSONArray item3Rewards, JSONArray item4Rewards,
+            JSONArray item7Rewards) {
+        int requiredSlots = 0;
+        for (Object reward : item3Rewards) {
+            JSONArray row = parseGiftCodeRewardRow(reward, "item3");
+            int id = Integer.parseInt(row.get(0).toString());
+            int quantity = Integer.parseInt(row.get(1).toString());
+            if (id < 0 || id >= ItemTemplate3.item.size() || ItemTemplate3.item.get(id) == null
+                    || quantity < 1 || quantity > 126 || requiredSlots + quantity > 126) {
+                throw new IllegalArgumentException("Phần thưởng item3 không hợp lệ");
+            }
+            requiredSlots += quantity;
+        }
+        validateGiftCodeStackRewards(item4Rewards, 4);
+        validateGiftCodeStackRewards(item7Rewards, 7);
+        return requiredSlots;
+    }
+
+    private static void validateGiftCodeStackRewards(JSONArray rewards, int category) {
+        for (Object reward : rewards) {
+            JSONArray row = parseGiftCodeRewardRow(reward, "item" + category);
+            int id = Integer.parseInt(row.get(0).toString());
+            int quantity = Integer.parseInt(row.get(1).toString());
+            boolean validTemplate = category == 4
+                    ? id >= 0 && id < ItemTemplate4.item.size() && ItemTemplate4.item.get(id) != null
+                    : id >= 0 && id < ItemTemplate7.item.size() && ItemTemplate7.item.get(id) != null;
+            if (!validTemplate || quantity < 1 || quantity > Short.MAX_VALUE) {
+                throw new IllegalArgumentException("Phần thưởng item" + category + " không hợp lệ");
+            }
+        }
+    }
+
+    private static JSONArray parseGiftCodeRewardRow(Object reward, String column) {
+        Object parsed = reward instanceof JSONArray ? reward : JSONValue.parse(String.valueOf(reward));
+        if (!(parsed instanceof JSONArray) || ((JSONArray) parsed).size() < 2) {
+            throw new IllegalArgumentException("Dòng phần thưởng " + column + " không hợp lệ");
+        }
+        return (JSONArray) parsed;
     }
 }

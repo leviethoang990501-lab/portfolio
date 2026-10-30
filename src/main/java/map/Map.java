@@ -414,7 +414,7 @@ private void auto_chat_npc() {
                 p.update_wings_time();
                 for (Pet pet : p.mypet) {
                     if (pet.grown > 0 && pet.time_eat < System.currentTimeMillis()) {
-                        pet.time_eat = System.currentTimeMillis() + 180_000L;
+                        pet.time_eat = System.currentTimeMillis() + Pet.HUNGER_INTERVAL_MS;
                         pet.grown -= 1;
                         if (pet.is_follow) {
 //                            Service.send_wear(p);

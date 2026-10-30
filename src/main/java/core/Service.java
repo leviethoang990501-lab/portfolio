@@ -1719,6 +1719,10 @@ public static void npc_chat(Session conn, String s) throws IOException {
                     if (!npc_in_map) {
                         return;
                     }
+                    if (p.pet_di_buon == null) {
+                        send_notice_box(p.conn, "Bạn chưa có thú đi buôn để chở hàng");
+                        return;
+                    }
                     int vang_quant = (idbuy - 3590) * 50_000 + 100_000;
                     if (p.get_vang() < vang_quant) {
                         send_notice_box(p.conn, "Không đủ " + vang_quant + " vàng");
@@ -1819,6 +1823,13 @@ public static void npc_chat(Session conn, String s) throws IOException {
                     }
                     itbag.op = new ArrayList<>();
                     itbag.op.addAll(opnew);
+                    if (Manager.isHalloweenFashion(idbuy)) {
+                        itbag.time_use = System.currentTimeMillis() + (30L * 24 * 60 * 60 * 1000);
+                    } else if (Manager.isHalloweenMask(idbuy)) {
+                        itbag.time_use = System.currentTimeMillis() + (3L * 24 * 60 * 60 * 1000);
+                    } else {
+                        itbag.time_use = 0;
+                    }
                     p.item.add_item_bag3(itbag);
                 }
                 p.item.char_inventory(4);
