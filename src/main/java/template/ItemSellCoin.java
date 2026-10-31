@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
+import core.ShopPriceRules;
 
 public class ItemSellCoin {
 	public static List<ItemSellCoin> entry = new ArrayList<>();
@@ -123,7 +124,7 @@ public class ItemSellCoin {
 				temp.op.add(new Option(Byte.parseByte(js4.get(0).toString()), Integer.parseInt(js4.get(1).toString())));
 			}
                         temp.color = Byte.parseByte(js2.get(2).toString());
-                        temp.price = Integer.parseInt(js2.get(3).toString());
+				temp.price = toGemPrice(Integer.parseInt(js2.get(3).toString()));
 			ItemSellCoin.entry.add(temp);
 		}
 		//
@@ -140,8 +141,21 @@ public class ItemSellCoin {
 				temp.op.add(new Option(Byte.parseByte(js4.get(0).toString()), Integer.parseInt(js4.get(1).toString())));
 			}
                         temp.color = Byte.parseByte(js2.get(2).toString());
-                        temp.price = Integer.parseInt(js2.get(3).toString());
+				temp.price = toGemPrice(Integer.parseInt(js2.get(3).toString()));
 			ItemSellCoin.entry.add(temp);
 		}
+	}
+
+	public static int toGemPrice(int coinPrice) {
+		return (int) ShopPriceRules.normalizeGemPrice(coinPrice);
+	}
+
+	public static ItemSellCoin find(short itemId) {
+		for (ItemSellCoin item : entry) {
+			if (item.id == itemId) {
+				return item;
+			}
+		}
+		return null;
 	}
 }

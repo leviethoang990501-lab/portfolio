@@ -12,6 +12,7 @@ import core.BagUpgradeRules;
 import core.GameSrc;
 import core.MedalRules;
 import core.Manager;
+import core.ShopPriceRules;
 import io.Message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -22,6 +23,7 @@ import map.LeaveItemMap;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 import template.Item3;
+import template.ItemSellCoin;
 import template.LvSkill;
 import template.Skill;
 
@@ -43,6 +45,8 @@ public final class CoreRegressionTest {
         testAllEquipmentOptionsAreSent();
         testHalloweenShopDistribution();
         testEventLanternCatalog();
+        testGemEquipmentShopPrices();
+        testHighGemShopPriceReduction();
         System.out.println("PASS - " + checks + " regression checks");
     }
 
@@ -338,6 +342,28 @@ public final class CoreRegressionTest {
         }
         check(mounts.size() == 48, "all item4 mounts are open for sale");
         check(Manager.EVENT_WING_SHOP_ITEMS.length == 7, "all seven fashion wings are open for sale");
+    }
+
+    private static void testGemEquipmentShopPrices() {
+        check(ItemSellCoin.toGemPrice(150_000) == 1_500, "150k coin price becomes 1.5k gems");
+        check(ItemSellCoin.toGemPrice(180_000) == 1_800, "180k coin price becomes 1.8k gems");
+        check(ItemSellCoin.toGemPrice(250_000) == 2_500, "250k coin price becomes 2.5k gems");
+        check(ItemSellCoin.toGemPrice(400_000) == 4_000, "400k coin price becomes 4k gems");
+        for (ItemSellCoin item : ItemSellCoin.entry) {
+            check(item.price >= 1_500 && item.price <= 4_000,
+                    "converted gem shop price stays in the 1.5k-4k range for item " + item.id);
+        }
+    }
+
+    private static void testHighGemShopPriceReduction() {
+        check(ShopPriceRules.normalizeGemPrice(9_999) == 9_999,
+                "gem shop prices below 10k stay unchanged");
+        check(ShopPriceRules.normalizeGemPrice(10_000) == 100,
+                "10k gem shop price loses two zeroes");
+        check(ShopPriceRules.normalizeGemPrice(20_000) == 200,
+                "20k gem shop price becomes 200 gems");
+        check(ShopPriceRules.normalizeGemPrice(1_000_000) == 10_000,
+                "one million gem shop price becomes 10k gems");
     }
 
     private static Skill skillWithLevels(int count) {

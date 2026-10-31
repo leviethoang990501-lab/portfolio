@@ -122,7 +122,7 @@ public class MenuController {
                 break;
             }
             case -4: {// Doubar
-                menu = new String[]{"Chiến Binh", "Sát Thủ", "Pháp Sư", "Xạ Thủ", "Thông Tin Boss", "Shop trang bị coin"};
+                menu = new String[]{"Chiến Binh", "Sát Thủ", "Pháp Sư", "Xạ Thủ", "Thông Tin Boss", "Shop trang bị ngọc"};
                 break;
             }
             case -33: { // da dich chuyen

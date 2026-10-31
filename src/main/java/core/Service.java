@@ -823,7 +823,7 @@ public class Service {
         Message m = new Message(23);
         switch (type) {
             case 37: {
-                m.writer().writeUTF("Cửa hàng trang bị bằng coin");
+                m.writer().writeUTF("Cửa hàng trang bị bằng ngọc");
                 m.writer().writeByte(1);
                 m.writer().writeShort(ItemSellCoin.entry.size());
                 for (int i = 0; i < ItemSellCoin.entry.size(); i++) {
@@ -841,7 +841,7 @@ public class Service {
                         m.writer().writeByte(temp.op.get(j).id);
                         m.writer().writeInt(temp.op.get(j).getParam(0));
                     }
-                    m.writer().writeByte(0); // pricetype: 0=coin in coin shop
+                    m.writer().writeByte(1); // pricetype: 1=ngọc
                 }
                 break;
             }
@@ -1736,6 +1736,35 @@ public static void npc_chat(Session conn, String s) throws IOException {
                     p.pet_di_buon.item.add(idbuy);
                     send_notice_box(p.conn, "Mua 1 " + ItemTemplate3.item.get(idbuy).getName());
                 } else {
+                    ItemSellCoin itemsellcoin = ItemSellCoin.find(idbuy);
+                    if (itemsellcoin != null) {
+                        long gemPrice = (long) quanity * itemsellcoin.price;
+                        if (p.get_ngoc() < gemPrice) {
+                            send_notice_box(p.conn, "Không đủ " + gemPrice + " ngọc");
+                            return;
+                        }
+                        p.update_ngoc(-gemPrice);
+                        Item3 itbag = new Item3();
+                        itbag.id = idbuy;
+                        itbag.clazz = ItemTemplate3.item.get(idbuy).getClazz();
+                        itbag.type = ItemTemplate3.item.get(idbuy).getType();
+                        itbag.level = 10;
+                        itbag.icon = ItemTemplate3.item.get(idbuy).getIcon();
+                        itbag.color = itemsellcoin.color;
+                        itbag.part = ItemTemplate3.item.get(idbuy).getPart();
+                        itbag.islock = true;
+                        itbag.name = ItemTemplate3.item.get(idbuy).getName();
+                        itbag.tier = 0;
+                        itbag.op = new ArrayList<>();
+                        for (Option option : itemsellcoin.op) {
+                            itbag.op.add(new Option(option.id, option.getParam(0)));
+                        }
+                        itbag.time_use = 0;
+                        p.item.add_item_bag3(itbag);
+                        p.item.char_inventory(3);
+                        send_notice_box(p.conn, "Mua thành công " + ItemTemplate3.item.get(idbuy).getName());
+                        return;
+                    }
                     long price = 0;
                     ItemSell3 buffer = null;
                     for (ItemSell3[] itsell_3 : Manager.gI().itemsellTB) {
@@ -1748,38 +1777,6 @@ public static void npc_chat(Session conn, String s) throws IOException {
                         }
                     }
                     if (price == 0) {
-                        ItemSellCoin itemsellcoin = null;
-                        for (int i = 0; i < ItemSellCoin.entry.size(); i++) {
-                            if (ItemSellCoin.entry.get(i).id == idbuy) {
-                                itemsellcoin = ItemSellCoin.entry.get(i);
-                                break;
-                            }
-                        }
-                        if (itemsellcoin != null) {
-                            if (p.update_coin(-itemsellcoin.price)) {
-                                Item3 itbag = new Item3();
-                                itbag.id = idbuy;
-                                itbag.clazz = ItemTemplate3.item.get(idbuy).getClazz();
-                                itbag.type = ItemTemplate3.item.get(idbuy).getType();
-                                itbag.level = 10;
-                                itbag.icon = ItemTemplate3.item.get(idbuy).getIcon();
-                                itbag.color = itemsellcoin.color;
-                                itbag.part = ItemTemplate3.item.get(idbuy).getPart();
-                                itbag.islock = true;
-                                itbag.name = ItemTemplate3.item.get(idbuy).getName();
-                                itbag.tier = 0;
-                                itbag.op = new ArrayList<>();
-                                for (int i = 0; i < itemsellcoin.op.size(); i++) {
-                                    itbag.op.add(new Option(itemsellcoin.op.get(i).id, itemsellcoin.op.get(i).getParam(0)));
-                                }
-                                itbag.time_use = 0;
-                                p.item.add_item_bag3(itbag);
-                                p.item.char_inventory(3);
-                                send_notice_box(p.conn, "Mua thành công " + ItemTemplate3.item.get(idbuy).getName());
-                            } else {
-                                send_notice_box(p.conn, "Không đủ " + itemsellcoin.price + " coin");
-                            }
-                        }
                         return;
                     }
                     if (buffer.pricetype == 0) {

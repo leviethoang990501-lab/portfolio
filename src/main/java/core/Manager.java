@@ -324,6 +324,9 @@ public class Manager {
             temp.setContent(rs.getString("content"));
             temp.setType(rs.getByte("typepotion"));
             temp.setPricetype(rs.getByte("moneytype"));
+            if (temp.getPricetype() == 1) {
+                temp.setPrice(ShopPriceRules.normalizeGemPrice(temp.getPrice()));
+            }
             temp.setSell(rs.getByte("sell"));
             temp.setValue(rs.getShort("value"));
             temp.setTrade(rs.getByte("canTrade"));
@@ -351,6 +354,9 @@ public class Manager {
             temp.setContent(rs.getString("content"));
             temp.setType(rs.getByte("type"));
             temp.setPricetype(rs.getByte("pricetype"));
+            if (temp.getPricetype() == 1) {
+                temp.setPrice(ShopPriceRules.normalizeGemPrice(temp.getPrice()));
+            }
             temp.setSell(rs.getByte("sell"));
             temp.setValue(rs.getShort("value"));
             temp.setTrade(rs.getByte("trade"));
@@ -472,6 +478,9 @@ public class Manager {
                                     Integer.parseInt(jsar4.get(1).toString())));
                         }
                         itemsell3[i].pricetype = Byte.parseByte(jsar2.get(7).toString());
+                        if (itemsell3[i].pricetype == 1) {
+                            itemsell3[i].price = ShopPriceRules.normalizeGemPrice(itemsell3[i].price);
+                        }
                     }
                     itemsellTB.add(addEventEquipment(type, itemsell3));
                     break;
