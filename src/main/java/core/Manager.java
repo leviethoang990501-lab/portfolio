@@ -45,16 +45,50 @@ import java.util.logging.Logger;
 
 public class Manager {
 
+    private static final short[] EVENT_DOUBAR_SHOP_ITEMS = {
+        3602, 3603, 3604, 3605, 3606, 3607, 3608, 3611, 3612, 3613, 3614, 3615,
+        4591, 4592, 4593, 4594, 4618, 4619, 4620, 4627, 4628, 4629, 4630, 4637,
+        4654, 4655, 4696, 4697, 4711, 4714, 4715, 4742, 4743, 4744, 4745,
+        4749, 4750, 4751, 4752, 4753, 4754, 4758, 4759, 4760, 4763, 4764,
+        4769, 4770, 4771, 4772, 4779
+    };
+    private static final short[] EVENT_HAMMER_SHOP_ITEMS = {
+        4632, 4633, 4634, 4635, 4636, 4700, 4703, 4704, 4705, 4706,
+        4716, 4717, 4718, 4719
+    };
+    private static final short[] EVENT_ALISAMA_SHOP_ITEMS = {
+        4638, 4639, 4640, 4641, 4642, 4643, 4644, 4645, 4646, 4647, 4648,
+        4691, 4692, 4693, 4694, 4698, 4707, 4709, 4710, 4712, 4713,
+        4730, 4731, 4740, 4755, 4756, 4773, 4774, 4775, 4776, 4777, 4778
+    };
+    private static final short[] EVENT_BLACKEYE_SHOP_ITEMS = {
+        4617, 4622, 4626, 4631, 4699, 4708, 4732, 4733, 4734, 4735, 4736,
+        4737, 4738, 4739, 4757, 4761, 4762, 4768
+    };
     public static final short[] HALLOWEEN_FASHION_SHOP_ITEMS = {
-        3604, 3605, 3607, 3608, 4698, 4740, 4756
+        3604, 3605, 3606, 3607, 3608, 4698, 4740, 4756
     };
     public static final short[] HALLOWEEN_MASK_SHOP_ITEMS = {
         4632, 4633, 4634, 4635, 4732, 4733, 4734, 4735, 4736, 4737, 4738, 4739, 4757
     };
-    public static final short HALLOWEEN_MOTORBIKE_ITEM = 316;
+    public static final short[] EVENT_MOUNT_SHOP_ITEMS = {
+        62, 63, 64, 65, 66, 70, 71, 72, 73, 74, 124, 125, 146, 159, 160,
+        161, 163, 222, 223, 246, 247, 248, 250, 251, 268, 269, 270, 271,
+        272, 275, 276, 279, 280, 281, 282, 283, 294, 295, 296, 299, 300,
+        301, 302, 313, 314, 315, 316, 317
+    };
+    public static final short[] EVENT_WING_SHOP_ITEMS = {
+        228, 229, 230, 231, 232, 233, 234
+    };
+    public static final short[] EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS = {
+        144, 145, 173, 174, 175, 176,
+        208, 209, 210, 211, 212, 213, 214,
+        260, 263, 264, 265, 266, 267, 303, 308,
+        309, 310, 311, 312
+    };
     private static final long HALLOWEEN_FASHION_PRICE = 10L;
     private static final long HALLOWEEN_MASK_PRICE = 5L;
-    private static final long HALLOWEEN_MOTORBIKE_PRICE = 2_000L;
+    private static final long HALLOWEEN_MOUNT_PRICE = 2_000L;
 
     public int size_mob;
     private static Manager instance;
@@ -296,9 +330,15 @@ public class Manager {
             ItemTemplate4.item.add(temp);
         }
         rs.close();
-        ItemTemplate4 motorbike = ItemTemplate4.item.get(HALLOWEEN_MOTORBIKE_ITEM);
-        motorbike.setPrice(HALLOWEEN_MOTORBIKE_PRICE);
-        motorbike.setPricetype((byte) 1);
+        for (short itemId : EVENT_MOUNT_SHOP_ITEMS) {
+            setItem4GemPrice(itemId, getEventMountGemPrice(itemId));
+        }
+        for (short itemId : EVENT_WING_SHOP_ITEMS) {
+            setItem4GemPrice(itemId, 500L);
+        }
+        for (short itemId : EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS) {
+            setItem4GemPrice(itemId, getEventLanternGemPrice(itemId));
+        }
         // load item7
         query = "SELECT * FROM `item7`;";
         rs = ps.executeQuery(query);
@@ -394,8 +434,8 @@ public class Manager {
                             break;
                         }
                     }
-                    itempoitionsell = appendShopItem(itempoitionsell, HALLOWEEN_MOTORBIKE_ITEM);
-
+                    itempoitionsell = appendShopItems(itempoitionsell, EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS);
+                    itempoitionsell = appendShopItems(itempoitionsell, EVENT_WING_SHOP_ITEMS);
                     break;
                 }
                 case 1:
@@ -433,7 +473,7 @@ public class Manager {
                         }
                         itemsell3[i].pricetype = Byte.parseByte(jsar2.get(7).toString());
                     }
-                    itemsellTB.add(addHalloweenEquipment(type, itemsell3));
+                    itemsellTB.add(addEventEquipment(type, itemsell3));
                     break;
                 }
                 case 17: {
@@ -771,32 +811,82 @@ public class Manager {
         return true;
     }
 
-    private static short[] appendShopItem(short[] items, short itemId) {
-        for (short id : items) {
-            if (id == itemId) {
-                return items;
+    private static void setItem4GemPrice(short itemId, long price) {
+        if (itemId < 0 || itemId >= ItemTemplate4.item.size()) {
+            return;
+        }
+        ItemTemplate4 item = ItemTemplate4.item.get(itemId);
+        item.setPrice(price);
+        item.setPricetype((byte) 1);
+    }
+
+    private static long getEventLanternGemPrice(short itemId) {
+        if (itemId < 0 || itemId >= ItemTemplate4.item.size()) {
+            return 1L;
+        }
+        long currentPrice = ItemTemplate4.item.get(itemId).getPrice();
+        if (itemId == 145 || itemId == 308 || currentPrice <= 0) {
+            return 10L;
+        }
+        return currentPrice;
+    }
+
+    private static long getEventMountGemPrice(short itemId) {
+        if (itemId < 0 || itemId >= ItemTemplate4.item.size()) {
+            return HALLOWEEN_MOUNT_PRICE;
+        }
+        ItemTemplate4 item = ItemTemplate4.item.get(itemId);
+        if (itemId == 316) {
+            return HALLOWEEN_MOUNT_PRICE;
+        }
+        if (item.getPricetype() == 1 && item.getPrice() > 0) {
+            return item.getPrice();
+        }
+        return HALLOWEEN_MOUNT_PRICE;
+    }
+
+    private static short[] appendShopItems(short[] items, short[] itemIds) {
+        short[] result = items;
+        for (short itemId : itemIds) {
+            boolean exists = false;
+            for (short existingId : result) {
+                if (existingId == itemId) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                result = Arrays.copyOf(result, result.length + 1);
+                result[result.length - 1] = itemId;
             }
         }
-        short[] result = Arrays.copyOf(items, items.length + 1);
-        result[result.length - 1] = itemId;
         return result;
     }
 
-    private static ItemSell3[] addHalloweenEquipment(byte shopType, ItemSell3[] items) {
-        short[] halloweenItems;
-        long price;
-        if ((shopType >= 1 && shopType <= 4) || (shopType >= 9 && shopType <= 12)) {
-            halloweenItems = HALLOWEEN_FASHION_SHOP_ITEMS;
-            price = HALLOWEEN_FASHION_PRICE;
-        } else if ((shopType >= 5 && shopType <= 8) || (shopType >= 13 && shopType <= 16)) {
-            halloweenItems = HALLOWEEN_MASK_SHOP_ITEMS;
-            price = HALLOWEEN_MASK_PRICE;
+    public static short[] getEventEquipmentShopItems(byte shopType) {
+        short[] items;
+        if (shopType >= 1 && shopType <= 4) {
+            items = EVENT_DOUBAR_SHOP_ITEMS;
+        } else if (shopType >= 5 && shopType <= 8) {
+            items = EVENT_HAMMER_SHOP_ITEMS;
+        } else if (shopType >= 9 && shopType <= 12) {
+            items = EVENT_ALISAMA_SHOP_ITEMS;
+        } else if (shopType >= 13 && shopType <= 16) {
+            items = EVENT_BLACKEYE_SHOP_ITEMS;
         } else {
+            return new short[0];
+        }
+        return Arrays.copyOf(items, items.length);
+    }
+
+    private static ItemSell3[] addEventEquipment(byte shopType, ItemSell3[] items) {
+        short[] eventItems = getEventEquipmentShopItems(shopType);
+        if (eventItems.length == 0) {
             return items;
         }
 
         ItemSell3[] result = items;
-        for (short itemId : halloweenItems) {
+        for (short itemId : eventItems) {
             boolean exists = false;
             for (ItemSell3 item : result) {
                 if (item.id == itemId) {
@@ -813,7 +903,7 @@ public class Manager {
             shopItem.id = itemId;
             shopItem.clazz = template.getClazz();
             shopItem.type = template.getType();
-            shopItem.price = price;
+            shopItem.price = getEventEquipmentGemPrice(itemId, template);
             shopItem.level = template.getLevel();
             shopItem.color = template.getColor();
             shopItem.option = new ArrayList<>();
@@ -826,6 +916,31 @@ public class Manager {
             result[result.length - 1] = shopItem;
         }
         return result;
+    }
+
+    private static long getEventEquipmentGemPrice(short itemId, ItemTemplate3 template) {
+        if (isHalloweenMask(itemId)) {
+            return HALLOWEEN_MASK_PRICE;
+        }
+        if (isHalloweenFashion(itemId)) {
+            return HALLOWEEN_FASHION_PRICE;
+        }
+        switch (template.getType()) {
+            case 14:
+                return 1_500L; // trứng thú event
+            case 15:
+                return 500L; // trang phục event vĩnh viễn
+            case 21:
+            case 25:
+            case 26:
+                return 300L; // mặt nạ, tóc, tai nghe
+            case 22:
+                return 1_000L; // cánh thời trang
+            case 24:
+                return 700L; // vũ khí thời trang
+            default:
+                return 500L;
+        }
     }
 
     public static boolean isHalloweenFashion(short itemId) {

@@ -1049,9 +1049,9 @@ public class Service {
             case 333: {
                 m.writer().writeUTF("Thú Cưỡi");
                 m.writer().writeByte(0);
-                m.writer().writeShort(4);
-                for (int i = 70; i < 74; i++) {
-                    m.writer().writeShort(i);
+                m.writer().writeShort(Manager.EVENT_MOUNT_SHOP_ITEMS.length);
+                for (short itemId : Manager.EVENT_MOUNT_SHOP_ITEMS) {
+                    m.writer().writeShort(itemId);
                 }
                 break;
             }

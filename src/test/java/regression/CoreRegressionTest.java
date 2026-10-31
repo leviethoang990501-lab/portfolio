@@ -11,6 +11,7 @@ import core.ExpRules;
 import core.BagUpgradeRules;
 import core.GameSrc;
 import core.MedalRules;
+import core.Manager;
 import io.Message;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -40,6 +41,8 @@ public final class CoreRegressionTest {
         testPetCatalog();
         testTestTopUpRules();
         testAllEquipmentOptionsAreSent();
+        testHalloweenShopDistribution();
+        testEventLanternCatalog();
         System.out.println("PASS - " + checks + " regression checks");
     }
 
@@ -292,6 +295,49 @@ public final class CoreRegressionTest {
         check(!TestTopUpRules.isValidAmount(1_000_001_000L), "reject test top-up above maximum");
         check(TestTopUpRules.canAddGems(1_999_999_999, 1), "allow gem balance at cap");
         check(!TestTopUpRules.canAddGems(2_000_000_000, 1), "reject gem balance overflow");
+    }
+
+    private static void testHalloweenShopDistribution() {
+        Set<Short> distributedItems = new HashSet<>();
+        for (byte shopType : new byte[]{1, 5, 9, 13}) {
+            short[] items = Manager.getEventEquipmentShopItems(shopType);
+            check(items.length > 0, "Halloween items assigned to shop type " + shopType);
+            for (short itemId : items) {
+                check(distributedItems.add(itemId), "Halloween item " + itemId + " is assigned to only one NPC");
+            }
+        }
+        check(distributedItems.contains((short) 3606), "Mũ bí ma is available in the Halloween shops");
+        for (short itemId : Manager.HALLOWEEN_FASHION_SHOP_ITEMS) {
+            check(distributedItems.contains(itemId), "Halloween fashion item " + itemId + " is distributed");
+        }
+        for (short itemId : Manager.HALLOWEEN_MASK_SHOP_ITEMS) {
+            check(distributedItems.contains(itemId), "Halloween mask item " + itemId + " is distributed");
+        }
+        check(Manager.getEventEquipmentShopItems((byte) 0).length == 0,
+                "non-equipment shops do not receive Halloween equipment");
+    }
+
+    private static void testEventLanternCatalog() {
+        Set<Short> lanterns = new HashSet<>();
+        for (short itemId : Manager.EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS) {
+            check(lanterns.add(itemId), "event lantern item " + itemId + " is listed once");
+        }
+        for (short itemId : new short[]{144, 145, 173, 174, 175, 176, 208, 209, 210, 211, 212, 213,
+            214, 260, 263, 264, 265, 266, 267, 303, 308, 309, 310, 311, 312}) {
+            check(lanterns.contains(itemId), "event lantern/cosmetic item " + itemId + " is open for sale");
+        }
+        Set<Short> mounts = new HashSet<>();
+        for (short itemId : Manager.EVENT_MOUNT_SHOP_ITEMS) {
+            check(mounts.add(itemId), "event mount " + itemId + " is listed once");
+        }
+        for (short itemId : new short[]{62, 63, 64, 65, 66, 70, 71, 72, 73, 74, 124, 125, 146,
+            159, 160, 161, 163, 222, 223, 246, 247, 248, 250, 251, 268, 269, 270, 271, 272,
+            275, 276, 279, 280, 281, 282, 283, 294, 295, 296, 299, 300, 301, 302, 313, 314,
+            315, 316, 317}) {
+            check(mounts.contains(itemId), "mount item " + itemId + " is open for sale");
+        }
+        check(mounts.size() == 48, "all item4 mounts are open for sale");
+        check(Manager.EVENT_WING_SHOP_ITEMS.length == 7, "all seven fashion wings are open for sale");
     }
 
     private static Skill skillWithLevels(int count) {
