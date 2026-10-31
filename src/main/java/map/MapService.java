@@ -16,6 +16,8 @@ import core.Util;
 import core.SkillRules;
 import core.VietHoangProfile;
 import core.ExpRules;
+import core.BattlefieldRules;
+import core.BossRules;
 import event.BossEvent;
 import event_daily.ChienTruong;
 import event_daily.LoiDai;
@@ -3095,22 +3097,25 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         if (5 > Util.random(0, 100)) { // mob get miss
             dame = 0;
         }
-        if (mob.template.mob_id != 174 && !Map.is_map_chien_truong(map.map_id) && (dame < 0 || (mob.is_boss && (Math.abs(mob.level - p.level) > 5)))) {
-            // Boss validation rule:
-            // When disciple is summoned, apply current character (master) boss check: level diff <= 5
-            // When directly training disciple, disciple attacks boss according to disciple's level and combat rules
+        boolean bossLevelAllowed = BossRules.canDamage(mob.template.mob_id, mob.is_boss,
+                Map.is_map_chien_truong(map.map_id), p.level, mob.level);
+        if (mob.template.mob_id != 174 && !Map.is_map_chien_truong(map.map_id)
+                && (dame < 0 || !bossLevelAllowed)) {
             dame = 0;
         }
         if (dame > 2_000_000_000) {
             dame = 2_000_000_000;
         }
 
-        if (mob.template.mob_id >= 89 && mob.template.mob_id <= 92) { // house chien truong
-            dame /= 100;
-        }
-
         // Special damage (Light / Dark) calculation
         SpecialDamage spDame = SpecialDamage.calculate(p);
+        if (!bossLevelAllowed) spDame.damage = 0;
+
+        if (BattlefieldRules.isHouse(mob.template.mob_id)) {
+            int divisor = BattlefieldRules.houseDamageDivisor(ChienTruong.gI().hasLivingGuard(map));
+            dame /= divisor;
+            spDame.damage /= divisor;
+        }
 
         mob.hp -= dame;
         if (spDame.damage > 0) {
@@ -3210,10 +3215,20 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
 						conn.p.nv_tinh_tu[1]++;
 					}
 				}
-                if (mob.template.mob_id >= 89 && mob.template.mob_id <= 92) { // house chien truong
-                    p.update_point_arena(20);
+                boolean battlefieldHouse = Map.is_map_chien_truong(map.map_id)
+                        && BattlefieldRules.isHouse(mob.template.mob_id);
+                if (battlefieldHouse) {
+                    p.update_point_arena(BattlefieldRules.HOUSE_POINT);
                     Manager.gI().chatKTGprocess("@Server : " + p.name + " đã đánh sập " + mob.template.name);
                     ChienTruong.gI().update_house_die(mob.template.mob_id);
+                    if (BattlefieldRules.HOUSE_SKILL_BOOK_DROP_PERCENT > Util.random(100)) {
+                        LeaveItemMap.leave_random_skill_book(map, mob, p);
+                    }
+                } else if (Map.is_map_chien_truong(map.map_id)) {
+                    p.update_point_arena(BattlefieldRules.MONSTER_POINT);
+                    if (BattlefieldRules.MONSTER_VIOLET_DROP_PERCENT > Util.random(100)) {
+                        LeaveItemMap.leave_violet_medal_material(map, mob.index, p);
+                    }
                 }
 
                 if (mob.is_boss) {
@@ -3228,8 +3243,6 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
 
                     mob.is_boss_active = false;
                     Manager.gI().chatKTGprocess("@Server : " + p.name + " đã tiêu diệt " + mob.template.name + ", Top sát thương lên boss: " + p_name + " gây " + top_dame + " sát thương");
-                    LeaveItemMap.leave_item_boss(map, mob, p);
-                    LeaveItemMap.leave_item_boss(map, mob, p);
                     LeaveItemMap.leave_item_boss(map, mob, p);
                     Mob_in_map.num_boss--;
                 } else {
@@ -3421,7 +3434,7 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
             p.myclan.update_exp(exp_clan);
         }
         // pet attack
-        if (!mob.isdie && p.pet_follow) {
+        if (!mob.isdie && p.pet_follow && bossLevelAllowed) {
             Pet my_pet = null;
             for (Pet pett : p.mypet) {
                 if (pett.is_follow) {

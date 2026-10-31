@@ -39,13 +39,17 @@ public final class UpgradeRules {
         return isLuckyMaterial(itemId) ? 30 : 0;
     }
 
-    public static int failureTier(short itemId, int currentTier, boolean luckyStoneInsuranceTriggered) {
-        if (itemId == THREE_COLOR_STONE) return currentTier;
-        if (itemId == FOUR_LEAF_CLOVER) return Math.max(0, currentTier - 1);
-        if (itemId == THREE_LEAF_CLOVER) return Math.max(0, currentTier - 2);
-        if (itemId == LUCKY_STONE && luckyStoneInsuranceTriggered) return currentTier;
-        if (currentTier >= 11) return 11;
-        if (currentTier >= 6) return 6;
-        return currentTier >= 1 ? 1 : 0;
+    public static int failureInsurancePercent(short itemId) {
+        if (itemId == THREE_COLOR_STONE) return 100;
+        return itemId == LUCKY_STONE || itemId == THREE_LEAF_CLOVER || itemId == FOUR_LEAF_CLOVER
+                ? 30 : 0;
+    }
+
+    public static int failureTier(short itemId, int currentTier, boolean insuranceTriggered) {
+        if (itemId == THREE_COLOR_STONE || insuranceTriggered) return currentTier;
+        int protectedFloor = currentTier >= 11 ? 11 : currentTier >= 6 ? 6 : currentTier >= 1 ? 1 : 0;
+        if (itemId == FOUR_LEAF_CLOVER) return Math.max(protectedFloor, currentTier - 1);
+        if (itemId == THREE_LEAF_CLOVER) return Math.max(protectedFloor, currentTier - 2);
+        return protectedFloor;
     }
 }

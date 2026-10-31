@@ -2708,6 +2708,19 @@ public class Player {
 			m.cleanup();
 		}
 	}
+
+	public boolean spend_point_arena(int amount) throws IOException {
+		if (amount <= 0 || this.pointarena < amount) return false;
+		this.pointarena -= amount;
+		Service.send_health(this);
+		Message m = new Message(-95);
+		m.writer().writeByte(0);
+		m.writer().writeShort(this.id);
+		m.writer().writeShort(this.pointarena);
+		this.conn.addmsg(m);
+		m.cleanup();
+		return true;
+	}
 	
 	
 

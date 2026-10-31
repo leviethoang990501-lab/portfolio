@@ -321,105 +321,94 @@ public class LeaveItemMap {
 		}
 	}
 
+	public static void leave_violet_medal_material(Map map, int targetIndex, Player p) throws IOException {
+		short id = Medal_Material.m_violet[Util.random(Medal_Material.m_violet.length)];
+		leave_item_by_type7(map, id, p, targetIndex);
+	}
+
+	public static void leave_random_skill_book(Map map, Mob_in_map mob, Player p) throws IOException {
+		int id = Util.random(4577, 4585);
+		if (id < 0 || id >= ItemTemplate3.item.size()) return;
+		ItemTemplate3 book = ItemTemplate3.item.get(id);
+		leave_item_by_type3(map, id, book.getColor(), p, book.getName(), mob.index);
+	}
+
 	public static void leave_item_boss(Map map, Mob_in_map mob, Player p) throws IOException {
 		if (mob != null && mob.is_boss) {
 			// roi do boss co dinh
-			short[] id_item_leave3 = new short[] {};
 			short[] id_item_leave4 = new short[] {};
 			short[] id_item_leave7 = new short[] {};
 			short id_medal_material = -1;
+			boolean leave_orange_equipment = false;
 			switch (mob.template.mob_id) {
 				case 101: { // xa nu
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 53};
-					id_item_leave7 = new short[] {0, 4, 14, 0, 4, 12, 2, 2, 1, 1, 10, 10};
+					id_item_leave4 = new short[] {-1, 53};
+					id_item_leave7 = new short[] {14, 0, 4, 12, 2, 1, 10};
+					leave_orange_equipment = true;
 					id_medal_material = 138;
-                                        id_medal_material = 138;
-                                        id_medal_material = 138;
-                                        
 					break;
 				}
 				case 84: { // de vang
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 27, 27};
-					id_item_leave7 = new short[] {8, 9, 10, 13, 14, 0, 4, 0, 4};
+					id_item_leave4 = new short[] {-1, 27, 54};
+					id_item_leave7 = new short[] {0, 4, 8, 9, 10, 13, 14};
+					leave_orange_equipment = true;
 					id_medal_material = 139;
-                                        id_medal_material = 139;
-                                        id_medal_material = 139;
-                                       
 					break;
 				}
 				case 83: { // de bac
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 53};
-					id_item_leave7 = new short[] {0, 4, 0, 4, 11, 12, 14, 2, 3, 2, 3};
+					id_item_leave4 = new short[] {-1, 53};
+					id_item_leave7 = new short[] {0, 4, 12, 11, 2, 3, 14};
+					leave_orange_equipment = true;
 					id_medal_material = 141;
-                                        id_medal_material = 141;
-                                        id_medal_material = 141;
 					break;
 				}
 				case 103: { // bo cap chua
-					id_item_leave4 =
-					      new short[] {-1, -1, -1, -1, -1, -1, 48, 50, 18, 9, 48, 50, 18, 9, 2, 5, 2, 5, 2, 5, 2, 5};
-					id_item_leave7 = new short[] {0, 0, 0};
+					id_item_leave4 = new short[] {-1, 48, 50, 9, 18, 2, 5};
+					id_item_leave7 = new short[] {0};
 					id_medal_material = 136;
-                                        id_medal_material = 136;
-                                        id_medal_material = 136;
 					break;
 				}
 				case 104: { // quy 1 mat
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 10, 10};
-					id_item_leave7 = new short[] {2, 3, 2, 3, 12, 12, 8, 9, 10, 8, 9, 10};
+					id_item_leave4 = new short[] {-1, 10};
+					id_item_leave7 = new short[] {2, 3, 8, 9, 10, 12};
 					id_medal_material = 137;
-                                        id_medal_material = 137;
-                                        id_medal_material = 137;
 					break;
 				}
 				case 105: { // quy dau bo
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 49, 49};
-					id_item_leave7 = new short[] {11, 0, 4, 0, 4, 13, 14, 2, 3, 2, 3};
+					id_item_leave4 = new short[] {-1, 49, 54};
+					id_item_leave7 = new short[] {0, 4, 13, 11, 2, 3};
+					leave_orange_equipment = true;
 					id_medal_material = 140;
-                                        id_medal_material = 140;
-                                        id_medal_material = 140;
 					break;
 				}
 				case 106: { // ky sy dia nguc
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 53, 18};
-					id_item_leave7 = new short[] {11, 13, 2, 3, 2, 3, 14};
-					id_item_leave3 = new short[] {(short) Util.random(4577, 4585)};
+					id_item_leave4 = new short[] {-1, 18, 54, 53};
+					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
+					leave_orange_equipment = true;
 					id_medal_material = (short) Util.random(142, 144);
-                                        id_medal_material = (short) Util.random(142, 144);
-                                        id_medal_material = (short) Util.random(142, 144);
 					break;
 				}
 				case 149: { // nhen chua
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 53, 18};
-					id_item_leave7 = new short[] {11, 13, 2, 3, 2, 3, 14};
-                                        id_item_leave3 = new short[] {(short) Util.random(4577, 4585)};
+					id_item_leave4 = new short[] {-1, 18, 54, 53};
+					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
+					leave_orange_equipment = true;
 					id_medal_material = (short) Util.random(144, 146);
-                                        id_medal_material = (short) Util.random(144, 146);
-                                        id_medal_material = (short) Util.random(144, 146);
 					break;
 				}
 				case 155: { // giant skeleton
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 53, 18};
-					id_item_leave7 = new short[] {11, 13, 2, 3, 2, 3, 14};
-                                        id_item_leave3 = new short[] {(short) Util.random(4577, 4585)};
+					id_item_leave4 = new short[] {-1, 18, 54, 53};
+					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
+					leave_orange_equipment = true;
 					id_medal_material = (short) Util.random(136, 146);
-                                        id_medal_material = (short) Util.random(136, 146);
-                                        id_medal_material = (short) Util.random(136, 146);
 					break;
 				}
                                 case 174: { // cho 3 dau
-					id_item_leave4 = new short[] {-1, -1, -1, -1, -1, -1, 54, 53, 18};
-					id_item_leave7 = new short[] {11, 13, 2, 3, 2, 3, 14};
-                                        id_item_leave3 = new short[] {(short) Util.random(4577, 4585)};
+					id_item_leave4 = new short[] {-1, 18, 54, 53};
+					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
+					leave_orange_equipment = true;
 					id_medal_material = (short) Util.random(136, 146);
-                                        id_medal_material = (short) Util.random(136, 146);
-                                        id_medal_material = (short) Util.random(136, 146);
 					break;
 				}
-			}
-			for (short id : id_item_leave3) {
-				ItemTemplate3 temp = ItemTemplate3.item.get(id);
-				leave_item_by_type3(map, id, temp.getColor(), p, temp.getName(), mob.index);
 			}
 			for (short id : id_item_leave4) {
 				if (id == -1) {
@@ -431,7 +420,12 @@ public class LeaveItemMap {
 			for (short id : id_item_leave7) {
 				leave_item_by_type7(map, id, p, mob.index);
 			}
-			leave_item_by_type7(map, id_medal_material, p, mob.index);
+			if (leave_orange_equipment) {
+				leave_orange_equipment(map, mob, p);
+			}
+			if (id_medal_material >= 0) {
+				leave_item_by_type7(map, id_medal_material, p, mob.index);
+			}
                         if (50>Util.random(120)) {
                             leave_item_by_type4(map,(short) 319, p, mob.index);
                         }
@@ -446,6 +440,21 @@ public class LeaveItemMap {
 			// leave_item_by_type4(map, id_item_leave4[Util.random(0, id_item_leave4.length)], p, index);
 			// id_item_leave7 = new short[] {1};
 			// leave_item_by_type7(map, id_item_leave7[Util.random(0, id_item_leave7.length)], p, index);
+		}
+	}
+
+	private static void leave_orange_equipment(Map map, Mob_in_map mob, Player p) throws IOException {
+		List<Short> pool = poolForLevel(mob.level);
+		if (pool.isEmpty()) return;
+		short baseId = pool.get(Util.random(pool.size()));
+		if (baseId < 0 || baseId >= ItemTemplate3.item.size()) return;
+		String name = ItemTemplate3.item.get(baseId).getName();
+		for (int i = 0; i < ItemTemplate3.item.size(); i++) {
+			ItemTemplate3 candidate = ItemTemplate3.item.get(i);
+			if (candidate.getColor() == 4 && candidate.getName().equals(name)) {
+				leave_item_by_type3(map, i, 4, p, candidate.getName(), mob.index);
+				return;
+			}
 		}
 	}
 

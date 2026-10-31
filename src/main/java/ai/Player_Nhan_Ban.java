@@ -6,10 +6,12 @@ import java.util.List;
 import client.Player;
 import core.Service;
 import core.Util;
+import core.BattlefieldRules;
 import event_daily.ChienTruong;
 import io.Message;
 import map.Map;
 import map.MapService;
+import map.LeaveItemMap;
 import template.EffTemplate;
 import template.SpecialDamage;
 
@@ -70,11 +72,11 @@ public class Player_Nhan_Ban {
 		temp.y = 520;
 		temp.map = Map.get_map_by_id(map)[zone];
 		temp.isdie = false;
-		temp.hp_max = 10_000_000;
+		temp.hp_max = BattlefieldRules.GUARD_HP;
 		temp.hp = temp.hp_max;
 		temp.target = -1;
 		temp.village = village;
-		temp.dame = 30_000;
+		temp.dame = BattlefieldRules.GUARD_DAMAGE;
 		result.add(temp);
 	}
 
@@ -239,6 +241,7 @@ public class Player_Nhan_Ban {
 		for (int i = 0; i < ChienTruong.gI().list_ai.size(); i++) {
 			Player_Nhan_Ban temp = ChienTruong.gI().list_ai.get(i);
 			if (temp.id == id) {
+				if (temp.isdie || !temp.map.equals(map)) return;
                             
                             switch (map.map_id) {
 					case 58: {
@@ -323,7 +326,8 @@ public class Player_Nhan_Ban {
 					}
 					m3.cleanup();
 					//
-					p.update_point_arena(2);
+					p.update_point_arena(BattlefieldRules.GUARD_POINT);
+					LeaveItemMap.leave_violet_medal_material(map, temp.id, p);
 				}
 				//
 				m.writer().writeInt((int) dame); // dame

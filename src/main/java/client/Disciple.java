@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import core.Manager;
+import core.BossRules;
 import core.Service;
 import core.Util;
 import io.Message;
@@ -1079,7 +1080,8 @@ public class Disciple {
         if (dame <= 0) dame = 1;
         if (dame > 2_000_000_000) dame = 2_000_000_000;
 
-        if (mob.is_boss && Math.abs(mob.level - this.level) > 5) {
+        if (!BossRules.canDamage(mob.template.mob_id, mob.is_boss,
+                Map.is_map_chien_truong(mob.map_id), this.level, mob.level)) {
             dame = 0;
         }
 

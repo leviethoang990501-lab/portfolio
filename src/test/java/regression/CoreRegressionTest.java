@@ -9,6 +9,8 @@ import core.UpgradeRules;
 import core.Khu2Rules;
 import core.ExpRules;
 import core.BagUpgradeRules;
+import core.BossRules;
+import core.BattlefieldRules;
 import core.GameSrc;
 import core.MedalRules;
 import core.Manager;
@@ -35,6 +37,8 @@ public final class CoreRegressionTest {
         testEquipmentSlots();
         testEquipmentEligibility();
         testUpgradeRequirements();
+        testSoloBossBalance();
+        testSoloBattlefieldBalance();
         testKhu2Rules();
         testExpRules();
         testBagUpgradeRules();
@@ -204,13 +208,70 @@ public final class CoreRegressionTest {
         check(UpgradeRules.goldCost(5) == 10_000L, "gold cost");
         check(UpgradeRules.isLuckyMaterial(UpgradeRules.THREE_LEAF_CLOVER), "three-leaf clover accepted");
         check(UpgradeRules.isLuckyMaterial(UpgradeRules.FOUR_LEAF_CLOVER), "four-leaf clover accepted");
+        check(UpgradeRules.luckyBonus(UpgradeRules.LUCKY_STONE) == 30, "lucky stone bonus");
         check(UpgradeRules.luckyBonus(UpgradeRules.THREE_LEAF_CLOVER) == 30, "three-leaf clover bonus");
+        check(UpgradeRules.luckyBonus(UpgradeRules.FOUR_LEAF_CLOVER) == 30, "four-leaf clover bonus");
+        check(UpgradeRules.luckyBonus(UpgradeRules.THREE_COLOR_STONE) == 35, "three-color stone bonus");
+        check(UpgradeRules.failureInsurancePercent(UpgradeRules.LUCKY_STONE) == 30,
+                "lucky stone insurance rate");
+        check(UpgradeRules.failureInsurancePercent(UpgradeRules.THREE_LEAF_CLOVER) == 30,
+                "three-leaf clover insurance rate");
+        check(UpgradeRules.failureInsurancePercent(UpgradeRules.FOUR_LEAF_CLOVER) == 30,
+                "four-leaf clover insurance rate");
+        check(UpgradeRules.failureInsurancePercent(UpgradeRules.THREE_COLOR_STONE) == 100,
+                "three-color stone insurance rate");
         check(UpgradeRules.failureTier(UpgradeRules.THREE_LEAF_CLOVER, 10, false) == 8,
-                "three-leaf clover loses two tiers");
+                "three-leaf clover loses two tiers without insurance");
+        check(UpgradeRules.failureTier(UpgradeRules.THREE_LEAF_CLOVER, 10, true) == 10,
+                "three-leaf clover keeps tier when insurance triggers");
         check(UpgradeRules.failureTier(UpgradeRules.FOUR_LEAF_CLOVER, 10, false) == 9,
-                "four-leaf clover loses one tier");
+                "four-leaf clover loses one tier without insurance");
+        check(UpgradeRules.failureTier(UpgradeRules.FOUR_LEAF_CLOVER, 10, true) == 10,
+                "four-leaf clover keeps tier when insurance triggers");
         check(UpgradeRules.failureTier(UpgradeRules.THREE_COLOR_STONE, 10, false) == 10,
-                "three-color stone protects tier");
+                "three-color stone always protects tier");
+        check(UpgradeRules.failureTier(UpgradeRules.LUCKY_STONE, 10, true) == 10,
+                "lucky stone keeps tier when insurance triggers");
+        check(UpgradeRules.failureTier((short) -1, 6, false) == 6,
+                "tier 6 is a protected failure floor");
+        check(UpgradeRules.failureTier(UpgradeRules.FOUR_LEAF_CLOVER, 6, false) == 6,
+                "four-leaf clover cannot drop below tier 6");
+        check(UpgradeRules.failureTier(UpgradeRules.THREE_LEAF_CLOVER, 6, false) == 6,
+                "three-leaf clover cannot drop below tier 6");
+        check(UpgradeRules.failureTier((short) -1, 11, false) == 11,
+                "tier 11 is a protected failure floor");
+        check(UpgradeRules.failureTier(UpgradeRules.FOUR_LEAF_CLOVER, 11, false) == 11,
+                "four-leaf clover cannot drop below tier 11");
+        check(UpgradeRules.failureTier(UpgradeRules.THREE_LEAF_CLOVER, 11, false) == 11,
+                "three-leaf clover cannot drop below tier 11");
+    }
+
+    private static void testSoloBossBalance() {
+        check(BossRules.soloHp(103, 1_000_000_000) == 250_000, "scorpion boss solo HP");
+        check(BossRules.soloHp(101, 1_000_000_000) == 1_000_000, "medusa boss solo HP");
+        check(BossRules.soloHp(106, 1_000_000_000) == 3_000_000, "hell knight solo HP");
+        check(BossRules.soloHp(155, 1_000_000_000) == 4_000_000, "giant skeleton solo HP");
+        check(BossRules.soloHp(1, 600) == 600, "normal monster HP unchanged");
+        check(BossRules.canDamage(103, true, false, 10, 14), "boss within five levels");
+        check(!BossRules.canDamage(103, true, false, 8, 14), "boss blocks excessive level gap");
+        check(BossRules.canDamage(1, false, false, 1, 100), "normal monster ignores boss level rule");
+        check(BossRules.canDamage(101, true, true, 1, 54), "battlefield boss uses event rules");
+    }
+
+    private static void testSoloBattlefieldBalance() {
+        check(BattlefieldRules.ON_DEMAND_REGISTER_SECONDS == 30, "battlefield on-demand countdown");
+        check(BattlefieldRules.GUARD_HP == 300_000, "solo battlefield guard HP");
+        check(BattlefieldRules.HOUSE_HP == 5_000_000, "solo battlefield house HP");
+        check(BattlefieldRules.houseDamageDivisor(true) == 100, "guarded house damage reduction");
+        check(BattlefieldRules.houseDamageDivisor(false) == 5, "cleared house damage reduction");
+        check(BattlefieldRules.TRADE_ROLE_POINT_COST == 2, "trade role battlefield point cost");
+        check(BattlefieldRules.MATERIAL_MONSTER_COUNT == 8, "battlefield material monster count");
+        check(BattlefieldRules.isHouse(89) && BattlefieldRules.isHouse(92), "battlefield house ids");
+        check(!BattlefieldRules.isHouse(88), "non-house id");
+        check(BattlefieldRules.countLivingEnemyHouses(new int[] {1, 1, 1, 1}, 2) == 3,
+                "solo battlefield starts with three enemy houses");
+        check(BattlefieldRules.countLivingEnemyHouses(new int[] {1, 0, 0, 0}, 2) == 0,
+                "solo battlefield completes without destroying own house");
     }
 
     private static void testKhu2Rules() {

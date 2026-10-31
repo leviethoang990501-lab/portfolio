@@ -546,24 +546,34 @@ public class MenuController {
             }
             case 998: {
                 if (index == 0) {
+                    if (ChienTruong.gI().getStatus() == 0) ChienTruong.gI().open_register();
                     if (ChienTruong.gI().getStatus() == 1) {
-                        if (conn.p.get_vang() < 1_000_000) {
-                            Service.send_notice_box(conn, "Không đủ 1.000.000 vàng");
+						if (ChienTruong.gI().get_infor_register(conn.p.name) != null) {
+							Service.send_notice_box(conn, "Bạn đã đăng ký chiến trường rồi");
+							return;
+						}
+						if (conn.p.get_vang() < 500_000) {
+							Service.send_notice_box(conn, "Không đủ 500.000 vàng");
                             return;
                         }
-                        conn.p.update_vang(-1_000_000);
+						conn.p.update_vang(-500_000);
                         conn.p.item.char_inventory(5);
                         ChienTruong.gI().register(conn.p, 0);
                     } else {
                         Service.send_notice_box(conn, "Không trong thời gian diễn ra");
                     }
                 } else if (index == 1) {
+                    if (ChienTruong.gI().getStatus() == 0) ChienTruong.gI().open_register();
                     if (ChienTruong.gI().getStatus() == 1) {
-                        if (conn.p.get_ngoc() < 500) {
-                            Service.send_notice_box(conn, "Không đủ 500 ngọc");
+						if (ChienTruong.gI().get_infor_register(conn.p.name) != null) {
+							Service.send_notice_box(conn, "Bạn đã đăng ký chiến trường rồi");
+							return;
+						}
+						if (conn.p.get_ngoc() < 2) {
+							Service.send_notice_box(conn, "Không đủ 2 ngọc");
                             return;
                         }
-                        conn.p.update_ngoc(-500);
+						conn.p.update_ngoc(-2);
                         conn.p.item.char_inventory(5);
                         ChienTruong.gI().register(conn.p, 1);
                     } else {
@@ -1427,6 +1437,15 @@ public class MenuController {
                 break;
             }
             case 2: {
+				if (conn.p.item.wear[11] != null && (conn.p.item.wear[11].id == 3593
+						|| conn.p.item.wear[11].id == 3599 || conn.p.item.wear[11].id == 3596)) {
+					Service.send_notice_box(conn, "Hãy tháo vai trò đi buôn/cướp hiện tại trước khi nhận lượt mới");
+					return;
+				}
+				if (!conn.p.spend_point_arena(BattlefieldRules.TRADE_ROLE_POINT_COST)) {
+					Service.send_notice_box(conn, "Cần 2 điểm chiến trường để nhận 1 lượt Cướp");
+					return;
+				}
                 Item3 itbag = new Item3();
                 itbag.id = 3593;
                 itbag.clazz = ItemTemplate3.item.get(3593).getClazz();
@@ -1454,7 +1473,7 @@ public class MenuController {
                 conn.p.item.char_inventory(3);
                 conn.p.fashion = Part_fashion.get_part(conn.p);
                 conn.p.change_map_di_buon(conn.p);
-                Service.send_notice_box(conn, "Nhận thành công");
+				Service.send_notice_box(conn, "Đã dùng 2 điểm chiến trường. Tháo vai trò ra sẽ kết thúc lượt Cướp");
                 break;
             }
             default: {
@@ -1522,6 +1541,15 @@ public class MenuController {
                 break;
             }
             case 2: {
+				if (conn.p.item.wear[11] != null && (conn.p.item.wear[11].id == 3593
+						|| conn.p.item.wear[11].id == 3599 || conn.p.item.wear[11].id == 3596)) {
+					Service.send_notice_box(conn, "Hãy tháo vai trò đi buôn/cướp hiện tại trước khi nhận lượt mới");
+					return;
+				}
+				if (!conn.p.spend_point_arena(BattlefieldRules.TRADE_ROLE_POINT_COST)) {
+					Service.send_notice_box(conn, "Cần 2 điểm chiến trường để nhận 1 lượt Đi Buôn");
+					return;
+				}
                 Item3 itbag = new Item3();
                 itbag.id = 3599;
                 itbag.clazz = ItemTemplate3.item.get(3599).getClazz();
@@ -1549,7 +1577,7 @@ public class MenuController {
                 conn.p.item.char_inventory(3);
                 conn.p.fashion = Part_fashion.get_part(conn.p);
                 conn.p.change_map_di_buon(conn.p);
-                Service.send_notice_box(conn, "Nhận thành công");
+				Service.send_notice_box(conn, "Đã dùng 2 điểm chiến trường. Tháo vai trò ra sẽ kết thúc lượt Đi Buôn");
                 break;
             }
             default: {

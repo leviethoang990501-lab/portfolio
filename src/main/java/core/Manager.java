@@ -572,9 +572,33 @@ public class Manager {
                 } else {
                     mob.is_boss = false;
                 }
-                mob.hpmax = Mob.entrys.get(id).hpmax;
+                if (BattlefieldRules.isHouse(id)) {
+                    mob.hpmax = BattlefieldRules.HOUSE_HP;
+                } else {
+                    mob.hpmax = mob.is_boss
+                            ? BossRules.soloHp(id, Mob.entrys.get(id).hpmax)
+                            : Mob.entrys.get(id).hpmax;
+                }
                 mob.hp = mob.hpmax;
                 mob_in_map.add(mob);
+            }
+            if (map_id == 61) {
+                for (int[] spawn : BattlefieldRules.MATERIAL_MONSTER_SPAWNS) {
+                    Mob_in_map mob = new Mob_in_map();
+                    short id = (short) spawn[0];
+                    mob.template = Mob.entrys.get(id);
+                    mob.x = (short) spawn[1];
+                    mob.y = (short) spawn[2];
+                    mob.level = mob.template.level;
+                    mob.map_id = map_id;
+                    mob.isdie = false;
+                    mob.is_boss = false;
+                    mob.time_back = System.currentTimeMillis() + 4_000L;
+                    mob.color_name = 0;
+                    mob.hpmax = mob.template.hpmax;
+                    mob.hp = mob.hpmax;
+                    mob_in_map.add(mob);
+                }
             }
             jsar.clear();
             //

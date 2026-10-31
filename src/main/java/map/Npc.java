@@ -6,7 +6,7 @@ import io.Message;
 
 public class Npc {
 
-    public static String CHAT_MR_BALLARD = "Chiến trường bắt đầu vào 21h30 phút hàng ngày";
+    public static String CHAT_MR_BALLARD = "Có thể đăng ký Chiến Trường bất kỳ lúc nào. Trận bắt đầu sau 30 giây";
     public static String CHAT_TOP = "Nỡ lòng nào các bạn nhổ nước bọt vào mình :(";
     public static String CHAT_PHO_CHI_HUY = "Đến đây rồi các bạn sẽ biết 1 người phó lãnh đạo là như thế nào";
     public static String CHAT_PHAP_SU = "Đập đồ ở đây có tỷ lệ lên rất cao khi đã trừ đi tỷ lệ xịt :D";

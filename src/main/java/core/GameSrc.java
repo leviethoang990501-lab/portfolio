@@ -166,10 +166,10 @@ public class GameSrc {
                             }
                         } else {
                             short luckyItem = conn.p.is_use_mayman ? conn.p.id_use_mayman : -1;
-                            boolean luckyStoneInsurance = luckyItem == UpgradeRules.LUCKY_STONE
-                                    && Util.random(0, 100) < 30;
+                            boolean failureInsurance = Util.random(0, 100)
+                                    < UpgradeRules.failureInsurancePercent(luckyItem);
                             it_upgrade.tier = (byte) UpgradeRules.failureTier(
-                                    luckyItem, it_upgrade.tier, luckyStoneInsurance);
+                                    luckyItem, it_upgrade.tier, failureInsurance);
                         }
                         if (conn.p.is_use_mayman && UpgradeRules.isLuckyMaterial(conn.p.id_use_mayman)) {
                             conn.p.item.remove(7, conn.p.id_use_mayman, 1);

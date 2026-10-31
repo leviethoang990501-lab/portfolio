@@ -12,6 +12,7 @@ import client.Player;
 import core.Manager;
 import core.Service;
 import core.Util;
+import core.BattlefieldRules;
 import io.Message;
 import map.Map;
 import map.MapService;
@@ -156,7 +157,7 @@ public synchronized void close_and_start() throws IOException {
 			Manager.gI().chatKTGprocess("Chiến Trường Đã Bắt Đầu!");
 			this.BXH.clear();
 			this.status = 2;
-			this.time = 60 * 60;
+			this.time = BattlefieldRules.MATCH_SECONDS;
 			int init_house = this.list.size() / 40;
 			init_house = init_house > 0 ? init_house : 1;
 			this.info_house = new int[] {init_house, init_house, init_house, init_house
@@ -174,8 +175,8 @@ public synchronized void close_and_start() throws IOException {
 			}
 			if (list.size() == 1) {
 				list.get(0).village = Util.random(4) + 2;
-			}
-			if (list.size() < 4) {
+				this.info_house = new int[] {1, 1, 1, 1};
+			} else if (list.size() < 4) {
 				for (int i = 0; i < list.size(); i++) {
 					this.info_house[list.get(i).village - 2]++;
 				}
@@ -271,6 +272,20 @@ public synchronized void close_and_start() throws IOException {
 				}
 				break;
 			}
+		}
+		if (this.list.size() == 1) {
+			Member_ChienTruong solo = this.list.values().iterator().next();
+			Player soloPlayer = Map.get_player_by_name(solo.name);
+			if (soloPlayer != null) ChienTruong.gI().send_info(soloPlayer);
+			if (this.time > 5 && BattlefieldRules.countLivingEnemyHouses(this.info_house, solo.village) == 0) {
+				this.time = 5;
+				if (soloPlayer != null && Map.is_map_chien_truong(soloPlayer.map.map_id)) {
+					soloPlayer.update_point_arena(100);
+					ChienTruong.gI().send_info(soloPlayer);
+					this.update_time(soloPlayer);
+				}
+			}
+			return;
 		}
 		for (Entry<String, Member_ChienTruong> en : this.list.entrySet()) {
 			Player p0 = Map.get_player_by_name(en.getKey());
@@ -431,10 +446,17 @@ public synchronized void close_and_start() throws IOException {
 		if (this.status == 0) {
 			Manager.gI().chatKTGprocess("Chiến Trường Đã Mở Đăng Ký, Hãy Mau Chóng Đến NPC Mr Ballrad Ở Hang Lửa Để Tham Gia");
 			this.status = 1;
-			this.time = 60 * 45;
+			this.time = BattlefieldRules.ON_DEMAND_REGISTER_SECONDS;
 			this.vang = 0;
 			this.ngoc = 0;
 		}
+	}
+
+	public boolean hasLivingGuard(Map map) {
+		for (Player_Nhan_Ban guard : this.list_ai) {
+			if (guard.map.equals(map) && !guard.isdie) return true;
+		}
+		return false;
 	}
 
 	public void send_info(Player p) throws IOException {
