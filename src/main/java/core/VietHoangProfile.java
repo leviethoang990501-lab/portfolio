@@ -1,6 +1,5 @@
 package core;
 
-import client.Pet;
 import client.Player;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,10 +19,6 @@ public final class VietHoangProfile {
     public static final String APPLIED_V2 = "viet-hoang-profile-v2";
     public static final String APPLIED_V3 = "viet-hoang-profile-v3";
     public static final String APPLIED = "viet-hoang-profile-v4";
-    private static final short[] TEST_PET_EGGS = new short[]{
-        2943, 2944, 2939, 3269, 3616, 4617, 4626, 4631, 4699, 4761, 4762, 4768
-    };
-
     private VietHoangProfile() {
     }
 
@@ -44,7 +39,6 @@ public final class VietHoangProfile {
             player.exp = 0;
         }
         if (player.get_vang() < 1_000_000_000L) player.update_vang(1_000_000_000L - player.get_vang());
-        if (player.get_ngoc() < 1_000_000) player.update_ngoc(1_000_000L - player.get_ngoc());
         player.tiemnang = Math.max(player.tiemnang, 10_000);
         player.kynang = (short) Math.max(player.kynang, 500);
         ensureBagCapacity(player, 126);
@@ -52,25 +46,9 @@ public final class VietHoangProfile {
         // Skill metadata is loaded later by Player.set_in4(). That method unlocks
         // and clamps the profile after the real per-skill level counts are known.
         if (player.skills != null) SkillRules.unlockAll(player.skill_point, player.skills);
-        grantTestPets(player);
         grantEquipmentKit(player);
         grantStackableKit(player);
         return true;
-    }
-
-    private static void grantTestPets(Player player) {
-        if (player.mypet == null) return;
-        Set<Byte> existingTypes = new HashSet<>();
-        for (Pet pet : player.mypet) if (pet != null) existingTypes.add(pet.type);
-        for (short eggId : TEST_PET_EGGS) {
-            Pet pet = Pet.get_pet(eggId);
-            if (pet == null || existingTypes.contains(pet.type)) continue;
-            pet.time_born = System.currentTimeMillis() - 1;
-            pet.is_hatch = true;
-            pet.is_follow = false;
-            player.mypet.add(pet);
-            existingTypes.add(pet.type);
-        }
     }
 
     private static void ensureBagCapacity(Player player, int capacity) {

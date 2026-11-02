@@ -946,8 +946,7 @@ public class Service {
             case 23: {
                 m.writer().writeUTF("Shop trứng");
                 m.writer().writeByte(1);
-                short[] id_egg = new short[]{2943, 2944};
-                long[] price_egg = new long[]{150, 150};
+                short[] id_egg = new short[]{2943, 2944, Pet.ID_DAI_BANG};
                 m.writer().writeShort(id_egg.length);
                 for (int i = 0; i < id_egg.length; i++) {
                     ItemTemplate3 temp = ItemTemplate3.item.get(id_egg[i]);
@@ -956,7 +955,7 @@ public class Service {
                     m.writer().writeByte(temp.getClazz());
                     m.writer().writeByte(temp.getType());
                     m.writer().writeShort(temp.getIcon());
-                    m.writer().writeLong(price_egg[i]); // 150 ngoc
+                    m.writer().writeLong(CharacterDefaults.petEggGemPrice(id_egg[i]));
                     m.writer().writeShort(temp.getLevel());
                     m.writer().writeByte(temp.getColor());
                     m.writer().writeByte(0); // op size
@@ -1686,12 +1685,13 @@ public static void npc_chat(Session conn, String s) throws IOException {
                 if (idbuy > (ItemTemplate3.item.size() - 1)) {
                     return;
                 }
-                if (idbuy == 2943 || idbuy == 2944) {
-                    if (p.get_ngoc() < 150) {
-                        send_notice_box(p.conn, "Không đủ 150 ngọc");
+                int petEggGemPrice = CharacterDefaults.petEggGemPrice(idbuy);
+                if (petEggGemPrice >= 0) {
+                    if (p.get_ngoc() < petEggGemPrice) {
+                        send_notice_box(p.conn, "Không đủ " + petEggGemPrice + " ngọc");
                         return;
                     }
-                    p.update_ngoc(-150);
+                    p.update_ngoc(-petEggGemPrice);
                     //
                     Item3 itbag = new Item3();
                     itbag.id = idbuy;

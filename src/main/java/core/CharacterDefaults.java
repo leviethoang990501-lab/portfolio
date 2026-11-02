@@ -3,10 +3,10 @@ package core;
 /** Defaults shared by character creation and regression tests. */
 public final class CharacterDefaults {
     public static final long STARTER_GOLD = 3_000L;
-    public static final int STARTER_GEMS = 10_000;
+    public static final int STARTER_GEMS = 3_000;
     public static final int STARTER_BAG_CAPACITY = BagUpgradeRules.MAX_CAPACITY;
-    public static final int STARTER_UPGRADE_MATERIAL_QUANTITY = 999;
-    public static final int STARTER_THREE_COLOR_STONE_QUANTITY = 50;
+    public static final int STARTER_UPGRADE_MATERIAL_QUANTITY = 32_000;
+    public static final int EAGLE_EGG_GEM_PRICE = 3_000;
 
     private CharacterDefaults() {
     }
@@ -44,19 +44,24 @@ public final class CharacterDefaults {
         return "[[0," + STARTER_UPGRADE_MATERIAL_QUANTITY + "]"
                 + ",[1," + STARTER_UPGRADE_MATERIAL_QUANTITY + "]"
                 + ",[2," + STARTER_UPGRADE_MATERIAL_QUANTITY + "]"
-                + ",[3," + STARTER_UPGRADE_MATERIAL_QUANTITY + "]"
-                + ",[14," + STARTER_THREE_COLOR_STONE_QUANTITY + "]]";
+                + ",[3," + STARTER_UPGRADE_MATERIAL_QUANTITY + "]]";
     }
 
-    /**
-     * A hatched, fully-grown and active eagle. Type 3 is what enables the
-     * eagle gold-drop ability in combat.
-     */
-    public static String starterEaglePet() {
-        long bornAt = System.currentTimeMillis();
-        return "[[1,3,9,3,0,300,300,0,0,0,0,10000,0,1,0," + bornAt
-                + ",[[23,1,0],[24,1,0],[25,1,0],[26,1,0],"
-                + "[46,1000,2000],[48,1500,4500],[3,1000,2000]]]]";
+    /** New characters buy their first pet from the egg shop. */
+    public static String starterPets() {
+        return "[]";
+    }
+
+    public static int petEggGemPrice(short itemId) {
+        switch (itemId) {
+            case 2943:
+            case 2944:
+                return 150;
+            case 3269:
+                return EAGLE_EGG_GEM_PRICE;
+            default:
+                return -1;
+        }
     }
 
     public static long starterGold(boolean fullTestProfile) {
@@ -64,6 +69,6 @@ public final class CharacterDefaults {
     }
 
     public static int starterGems(boolean fullTestProfile) {
-        return fullTestProfile ? 1_000_000 : STARTER_GEMS;
+        return STARTER_GEMS;
     }
 }

@@ -717,7 +717,7 @@ public class Session implements Runnable {
             ps.setNString(19, "[]");
             ps.setNString(20, CharacterDefaults.starterWear(clazz));
             ps.setNString(21, vietHoang ? "[\"viet-hoang-profile-pending\"]" : "[]");
-            ps.setNString(22, CharacterDefaults.starterEaglePet());
+            ps.setNString(22, CharacterDefaults.starterPets());
             ps.setByte(23, (byte) CharacterDefaults.STARTER_BAG_CAPACITY);
             ps.setNString(24, "[]");
             ps.setNString(25, "[]");

@@ -90,15 +90,16 @@ public final class CoreRegressionTest {
         check(!CharacterDefaults.isValidClazz((byte) 4), "reject invalid class");
 
         check(CharacterDefaults.STARTER_GOLD == 3_000L, "new character starts with 3,000 gold");
-        check(CharacterDefaults.STARTER_GEMS == 10_000, "new character starts with 10,000 gems");
+        check(CharacterDefaults.STARTER_GEMS == 3_000, "new character starts with 3,000 gems");
         check(CharacterDefaults.starterGold(false) == 3_000L, "normal starter gold");
-        check(CharacterDefaults.starterGems(false) == 10_000, "normal starter gems");
+        check(CharacterDefaults.starterGems(false) == 3_000, "normal starter gems");
+        check(CharacterDefaults.starterGems(true) == 3_000, "test-profile character starter gems");
         check(CharacterDefaults.STARTER_BAG_CAPACITY == 126, "new character starts with full bag");
 
         JSONArray materials = (JSONArray) JSONValue.parse(CharacterDefaults.starterUpgradeMaterials());
-        check(materials != null && materials.size() == 5, "starter upgrade material stacks");
-        int[] expectedIds = new int[]{0, 1, 2, 3, 14};
-        int[] expectedQuantities = new int[]{999, 999, 999, 999, 50};
+        check(materials != null && materials.size() == 4, "starter upgrade material stacks");
+        int[] expectedIds = new int[]{0, 1, 2, 3};
+        int[] expectedQuantities = new int[]{32_000, 32_000, 32_000, 32_000};
         for (int i = 0; i < expectedIds.length; i++) {
             JSONArray stack = (JSONArray) materials.get(i);
             check(((Number) stack.get(0)).intValue() == expectedIds[i], "starter material id " + expectedIds[i]);
@@ -106,22 +107,12 @@ public final class CoreRegressionTest {
                     "starter material quantity " + expectedIds[i]);
         }
 
-        JSONArray pets = (JSONArray) JSONValue.parse(CharacterDefaults.starterEaglePet());
-        check(pets != null && pets.size() == 1, "one starter pet");
-        JSONArray eagle = (JSONArray) pets.get(0);
-        check(((Number) eagle.get(1)).intValue() == Pet.TYPE_DAI_BANG, "starter pet is eagle");
-        check(((Number) eagle.get(5)).intValue() == 300 && ((Number) eagle.get(6)).intValue() == 300,
-                "starter eagle is fully grown");
-        check(((Number) eagle.get(13)).intValue() == 1, "starter eagle follows character");
-        check(((Number) eagle.get(14)).intValue() == 0, "starter eagle is already hatched");
-
-        Pet loadedEagle = new Pet();
-        loadedEagle.setup(eagle);
-        check(loadedEagle.isEagle(), "starter eagle loads through Pet.setup");
-        check(loadedEagle.is_follow && !loadedEagle.is_hatch, "loaded starter eagle is active");
-        check(loadedEagle.grown == loadedEagle.maxgrown && loadedEagle.grown > 0,
-                "loaded starter eagle can attack immediately");
-        check(loadedEagle.getAttackOption() != null, "loaded starter eagle has attack option");
+        JSONArray pets = (JSONArray) JSONValue.parse(CharacterDefaults.starterPets());
+        check(pets != null && pets.isEmpty(), "new character starts without a pet");
+        check(CharacterDefaults.petEggGemPrice((short) 2943) == 150, "owl egg shop price");
+        check(CharacterDefaults.petEggGemPrice((short) 2944) == 150, "bat egg shop price");
+        check(CharacterDefaults.petEggGemPrice(Pet.ID_DAI_BANG) == 3_000, "eagle egg shop price");
+        check(CharacterDefaults.petEggGemPrice((short) 2939) == -1, "unlisted egg is not sold");
     }
 
     private static void testEquipmentSlots() {
