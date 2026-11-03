@@ -20,6 +20,8 @@ import java.util.Map.Entry;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONValue;
 import core.Log;
+import core.GemRules;
+import core.LanternRules;
 import core.Manager;
 import core.SQL;
 import core.Service;
@@ -183,6 +185,7 @@ public class Player {
     public short fusion_material_medal_id;
     public long pet_atk_speed;
     public long time_eff_medal;
+    public long time_eff_lantern;
     public int[] point_active;
     public short id_horse;
     public boolean is_create_wing;
@@ -216,7 +219,8 @@ public class Player {
     public Wedding it_wedding;
     public String[] in4_wedding;
     public int[] quest_daily;
-    public long vang_ct = 10_000;
+    public int ct_revive_count;
+    public long time_enter_map;
     public int dropnlmd = 1 ;
    public short[] tinhtu_material;
 	public short id_tach_vp = -1;
@@ -925,7 +929,7 @@ public class Player {
             //
             for (int i = 0; i < list_eff.size(); i++) {
                 EffTemplate temp = list_eff.get(i);
-                if (temp.id != -126 && temp.id != -125 && temp.id != -127) {
+                if (temp.id != -126 && temp.id != -125 && temp.id != -127 && !LanternRules.isLanternEffect(temp.id)) {
                     continue;
                 }
 
@@ -1378,9 +1382,57 @@ public class Player {
         }
     }
 
-    public void add_eff(int id, int param, int time) {
+    // Gui lai dinh ky nhu eff mề đay de nguoi moi vao map cung thay long den.
+    public void process_eff_lantern() throws IOException {
+        long now = System.currentTimeMillis();
+        if (isdie || time_eff_lantern >= now) {
+            return;
+        }
+        int sprite = 0;
+        for (int i = 0; i < list_eff.size() && sprite == 0; i++) {
+            sprite = LanternRules.spriteId(list_eff.get(i).id);
+        }
+        if (sprite == 0) {
+            return;
+        }
+        time_eff_lantern = now + LanternRules.SPRITE_INTERVAL_MILLIS;
+        Message m = new Message(-49);
+        m.writer().writeByte(4);
+        m.writer().writeShort(0);
+        m.writer().writeShort(sprite);
+        m.writer().writeByte(1);
+        m.writer().writeShort(this.id);
+        m.writer().writeByte(0);
+        MapService.send_msg_player_inside(this.map, this, m, true);
+        m.cleanup();
+    }
+
+    public int lantern_exp_param() {
+        return lantern_param(LanternRules.EFF_EXP)
+                + (get_eff(LanternRules.EFF_BUTTERFLY) != null ? LanternRules.BUTTERFLY_EXP_PARAM : 0);
+    }
+
+    public int lantern_hp_param() {
+        return lantern_param(LanternRules.EFF_HP)
+                + (get_eff(LanternRules.EFF_BUTTERFLY) != null ? LanternRules.BUTTERFLY_HP_DEF_PARAM : 0);
+    }
+
+    public int lantern_def_param() {
+        return lantern_param(LanternRules.EFF_DEF)
+                + (get_eff(LanternRules.EFF_BUTTERFLY) != null ? LanternRules.BUTTERFLY_HP_DEF_PARAM : 0);
+    }
+
+    public int lantern_param(int effId) {
+        EffTemplate ef = get_eff(effId);
+        return (ef != null) ? ef.param : 0;
+    }
+
+    public void add_eff(int id, int param, long time) {
         synchronized (list_eff) {
             if (param == 0) {
+                return;
+            }
+            if (GemRules.isResistedByKhaiHoan(id) && get_eff(GemRules.EFF_KHAI_HOAN) != null) {
                 return;
             }
             EffTemplate temp_test = get_eff(id);
@@ -1469,7 +1521,7 @@ public class Player {
                         if (mapp.zone_id == 1 && Map.has_monster(mbuffer[0].map_id)) { // Bo qua Khu 2 khi random/tu dong vao map co quai
                             continue;
                         }
-                        if (mapp.players.size() < mapp.maxplayer) {
+                        if (mapp.players.size() < mapp.maxplayer && !mapp.house_faction_full(p)) {
                             mbuffer2 = mapp;
                             break;
                         }
@@ -1525,6 +1577,9 @@ public class Player {
         }
         if (type_use_mount == 4) {
             dame_exp += ((dame_exp * 5) / 100);
+        }
+        if (expmulti && dame_exp > 0) {
+            dame_exp += (dame_exp * (lantern_exp_param() / 100)) / 100;
         }
         if ((type_exp == 0 && this.typepk != 0) || this.getlevelpercent() < (-500)) {
             return;
@@ -1611,6 +1666,14 @@ public class Player {
                 || conn.p.item.wear[11].id == 3593 || conn.p.item.wear[11].id == 3596))) {
             if (zone != this.map.zone_id) {
                 Map targetMap = Map.get_map_by_id(this.map.map_id)[zone];
+                if (targetMap.house_faction_full(this)) {
+                    Service.send_notice_box(conn, "Khu này đã đủ " + core.BattlefieldRules.MAX_FACTION_PER_HOUSE + " người của phe bạn");
+                    return;
+                }
+                if (core.BattlefieldRules.mustWaitZoneChange(this.map.map_id, this.typepk, System.currentTimeMillis() - this.time_enter_map, ChienTruong.gI().getTime())) {
+                    Service.send_notice_box(conn, "Cần ở nhà chính phe khác đủ 5 giây mới được chuyển khu");
+                    return;
+                }
                 if (targetMap.players.size() >= targetMap.maxplayer) {
                     Service.send_notice_box(conn, "Có lỗi xảy ra khi chuyển map hoặc đã đầy, hãy thử lại sau");
                     return;
@@ -2304,7 +2367,7 @@ public class Player {
                         jsar.clear();
                         for (int i = 0; i < p0.list_eff.size(); i++) {
                             EffTemplate temp = p0.list_eff.get(i);
-                            if (temp.id != -126 && temp.id != -125 && temp.id != -127) {
+                            if (temp.id != -126 && temp.id != -125 && temp.id != -127 && !LanternRules.isLanternEffect(temp.id)) {
                                 continue;
                             }
                             JSONArray jsar21 = new JSONArray();
@@ -2596,54 +2659,80 @@ public class Player {
         for (int i = 0; i < it.op.size(); i++) {
             if (it.op.get(i).id == (58 + index)) {
                 int gemId = it.op.get(i).getParam(0);
-                // ngoc hon nguyen: 382-386
-                if (gemId >= 382 && gemId <= 386) {
-                    hit_count_ngoc_hon_nguyen++;
-                    int requiredHits = (387 - gemId) * 5;
-                    if (hit_count_ngoc_hon_nguyen >= requiredHits) {
-                        hit_count_ngoc_hon_nguyen = 0;
-                        if (get_eff(-210) == null) {
-                            // hy sinh 50% hp, x2 dame 3s
-                            long max_hp = body.get_max_hp();
-                            long sacrifice = max_hp / 2;
-                            hp -= sacrifice;
-                            if (hp < 1) hp = 1;
-                            add_eff(-210, 200, 3000);
-                        }
-                    }
-                }
-                // ngoc phong ma: 397-401
-                if (gemId >= 397 && gemId <= 401) {
-                    int level = gemId - 396;
-                    int chance = 5 + (level * 5);
-                    int hpThresholdPercent = 10 + (level * 10);
+                int family = GemRules.family(gemId);
+                // ngoc phong ma: hp thap co ty le hoi hp sau moi nhat danh
+                if (family == GemRules.FAMILY_PHONG_MA) {
                     long max_hp = body.get_max_hp();
-                    if (max_hp > 0 && hp < (max_hp * hpThresholdPercent) / 100
-                            && chance > Util.random(100) && get_eff(-212) == null) {
-                        add_eff(-212, level, 3000);
+                    if (max_hp > 0 && hp < (max_hp * GemRules.phongMaHpPercent(gemId)) / 100
+                            && GemRules.phongMaChance(gemId) > Util.random(1000)
+                            && get_eff(GemRules.EFF_PHONG_MA) == null) {
+                        add_eff(GemRules.EFF_PHONG_MA, GemRules.phongMaHealPercent(gemId),
+                                GemRules.isRefined(gemId) ? GemRules.PHONG_MA_REFINED_MILLIS : GemRules.EFFECT_MILLIS);
                     }
                 }
-                // ngoc khai hoan: 402-406 (hit bi danh 25 lan → khang hieu ung 3s)
-                if (gemId >= 402 && gemId <= 406) {
-                    int level = gemId - 401;
-                    hit_count_ngoc_khai_hoan++;
-                    int requiredHits = Math.max(10, 30 - (level * 4));
-                    if (hit_count_ngoc_khai_hoan >= requiredHits) {
-                        hit_count_ngoc_khai_hoan = 0;
-                        if (get_eff(-211) == null) {
-                            add_eff(-211, 20, 3000);
-                        }
-                    }
+                // ngoc sinh menh: co ty le tang st len boss
+                if (family == GemRules.FAMILY_SINH_MENH && GemRules.sinhMenhChance(gemId) > Util.random(1000)
+                        && get_eff(GemRules.EFF_SINH_MENH) == null) {
+                    add_eff(GemRules.EFF_SINH_MENH, GemRules.isRefined(gemId) ? GemRules.NO_PENALTY : GemRules.WITH_PENALTY,
+                            GemRules.EFFECT_MILLIS);
                 }
-                // ngoc luc bao: 407-411 (chuyen 10% st thanh hp)
-                if (gemId >= 407 && gemId <= 411) {
-                    int level = gemId - 406;
-                    int chance = 100 + (level * 100);
-                    if (chance > Util.random(1000) && get_eff(-213) == null) {
-                        add_eff(-213, level, 3000);
+            }
+        }
+    }
+
+    public List<Integer> socketed_gems() {
+        List<Integer> gems = new ArrayList<>();
+        for (int i = 0; i < item.wear.length; i++) {
+            Item3 it = item.wear[i];
+            if (it != null) {
+                for (short gemId : item.check_kham_ngoc(it)) {
+                    if (gemId >= 0) {
+                        gems.add((int) gemId);
                     }
                 }
             }
+        }
+        return gems;
+    }
+
+    // Ngoc hon nguyen: moi nhat danh trung nguoi khac hoac boss.
+    public void process_ngoc_danh_trung() throws IOException {
+        int gemId = GemRules.bestGem(GemRules.FAMILY_HON_NGUYEN, socketed_gems());
+        if (gemId == -1) {
+            return;
+        }
+        hit_count_ngoc_hon_nguyen++;
+        if (hit_count_ngoc_hon_nguyen >= GemRules.requiredHits(gemId)) {
+            hit_count_ngoc_hon_nguyen = 0;
+            if (get_eff(GemRules.EFF_HON_NGUYEN) == null) {
+                if (!GemRules.isRefined(gemId)) {
+                    // ngoc thuong phai hy sinh 50% hp
+                    long sacrifice = Math.min(body.get_max_hp() / 2, hp - 1);
+                    if (sacrifice > 0) {
+                        Service.usepotion(this, 0, -sacrifice);
+                    }
+                }
+                add_eff(GemRules.EFF_HON_NGUYEN, 200, GemRules.EFFECT_MILLIS);
+            }
+        }
+    }
+
+    // Ngoc khai hoan va luc bao: moi nhat bi danh trung.
+    public void process_ngoc_bi_danh() {
+        List<Integer> gems = socketed_gems();
+        int khaiHoan = GemRules.bestGem(GemRules.FAMILY_KHAI_HOAN, gems);
+        if (khaiHoan != -1) {
+            hit_count_ngoc_khai_hoan++;
+            if (hit_count_ngoc_khai_hoan >= GemRules.requiredHits(khaiHoan)) {
+                hit_count_ngoc_khai_hoan = 0;
+                add_eff(GemRules.EFF_KHAI_HOAN, GemRules.isRefined(khaiHoan) ? GemRules.NO_PENALTY : GemRules.KHAI_HOAN_PENALTY,
+                        GemRules.EFFECT_MILLIS);
+            }
+        }
+        int lucBao = GemRules.bestGem(GemRules.FAMILY_LUC_BAO, gems);
+        if (lucBao != -1 && GemRules.lucBaoChance(lucBao) > Util.random(1000) && get_eff(GemRules.EFF_LUC_BAO) == null) {
+            add_eff(GemRules.EFF_LUC_BAO, GemRules.isRefined(lucBao) ? GemRules.NO_PENALTY : GemRules.WITH_PENALTY,
+                    GemRules.EFFECT_MILLIS);
         }
     }
 

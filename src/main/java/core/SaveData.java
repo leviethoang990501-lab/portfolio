@@ -185,7 +185,7 @@ public class SaveData {
                         jsar.clear();
                         for (int i = 0; i < p0.list_eff.size(); i++) {
                             EffTemplate temp = p0.list_eff.get(i);
-                            if (temp.id != -126 && temp.id != -125 && temp.id != -127) {
+                            if (temp.id != -126 && temp.id != -125 && temp.id != -127 && !LanternRules.isLanternEffect(temp.id)) {
                                 continue;
                             }
                             JSONArray jsar21 = new JSONArray();

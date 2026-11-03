@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import client.Pet;
 import client.Player;
+import core.BossRules;
 import core.Manager;
 import core.Service;
 import core.Util;
@@ -99,9 +100,11 @@ public class Dungeon {
                     }
                     this.state = 2;
                     notice_all_player_in_dungeon("Hiệp " + (wave++) + " bắt đầu");
-                    this.num_mob = num_mob_max;
+                    this.num_mob = BossRules.isDungeonBossWave(wave) ? 1 : num_mob_max;
                     mobs.clear();
-                    if (wave <= 198) {
+                    if (BossRules.isDungeonBossWave(wave)) {
+                        id_mob_in_wave = BossRules.dungeonBossId(this.mode_now);
+                    } else if (wave <= 198) {
                         id_mob_in_wave = wave - 1;
                     } else {
                         id_mob_in_wave = Util.random(0, 198);
@@ -149,12 +152,14 @@ public class Dungeon {
                     }
                 }
             } else if (this.state == 2) { // fight
-                if (mobs.size() < num_mob_max) {
+                if (mobs.size() < (BossRules.isDungeonBossWave(this.wave) ? 1 : num_mob_max)) {
                     Mob_Dungeon mob = new Mob_Dungeon(this.index_mob++, Mob.entrys.get(id_mob_in_wave));
                     mob.x = 1308;
                     mob.y = 672 + Util.random(-25, 25);
                     mob.from_gate = 2;
-                    if (this.wave >= 21) {
+                    if (BossRules.isDungeonBossWave(this.wave)) {
+                        mob.hpmax = BossRules.soloHp(id_mob_in_wave, mob.template.hpmax);
+                    } else if (this.wave >= 21) {
                         mob.hpmax = mob.template.hpmax * (this.wave / 10);
                     } else {
                         mob.hpmax = mob.template.hpmax;
@@ -522,7 +527,7 @@ public class Dungeon {
         boolean crit = cr > Util.random(0, 10000);
         boolean pierce = false;
         if (crit) {
-            dame *= 2;
+            dame = (int) core.GemRules.critDamage(dame, p.body.get_gem_crit_damage_percent());
         }
         if (!crit) {
             long pier = p.body.get_pierce();
@@ -596,6 +601,13 @@ public class Dungeon {
             if (!mob.isdie) {
                 mob.isdie = true;
                 p.xptutien +=1;
+                if (BossRules.isDungeonBossWave(this.wave)) {
+                    Set<String> names = new HashSet<>();
+                    for (Player p0 : template.players) {
+                        names.add(p0.name);
+                    }
+                    LeaveItemMap.leave_dungeon_boss_material(map, mob.index_mob, p, names);
+                }
                 // send p outside
                 Message m2 = new Message(17);
                 m2.writer().writeShort(p.id);

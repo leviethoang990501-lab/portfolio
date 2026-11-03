@@ -1,5 +1,7 @@
 package client;
 
+import core.GemRules;
+import core.LanternRules;
 import core.SkillRules;
 import event_daily.TuTien;
 import template.EffTemplate;
@@ -173,6 +175,7 @@ public class Body {
             }
         }
         percent += ((p.kinhmach[0] - 1) * 5 + p.kinhmach[1]) * 100;
+        percent += p.lantern_hp_param();
         hpm += ((hpm * (percent / 100)) / 100);
         if (p.type_use_mount == 11 || p.type_use_mount == 12 || p.type_use_mount == 13
                 || (p.type_use_mount == 20 && (p.id_horse == 114 || p.id_horse == 121))) {
@@ -320,26 +323,44 @@ public class Body {
         int pie = total_item_param(36) + total_skill_param(36);
         pie += get_point(4) * 2;
         pie += (p.luyenthe * 20);
-        return pie;
+        return apply_khai_hoan_penalty(pie);
     }
 
     public int get_react_dame() {
         int param = 2 * get_point(3);
         param += total_item_param(35);
-        return param;
+        return apply_khai_hoan_penalty(param);
     }
 
     public int get_miss() {
         int param = 2 * get_point(2);
         param += total_item_param(34);
-        return param;
+        return apply_khai_hoan_penalty(param);
+    }
+
+    // Ngoc khai hoan thuong: giam ne, chi mang, phan dame, xuyen giap trong thoi gian hieu ung.
+    private int apply_khai_hoan_penalty(int value) {
+        EffTemplate ef = p.get_eff(GemRules.EFF_KHAI_HOAN);
+        if (ef != null && ef.param == GemRules.KHAI_HOAN_PENALTY) {
+            return (value * (100 - GemRules.KHAI_HOAN_PENALTY)) / 100;
+        }
+        return value;
+    }
+
+    // Ngoc tam linh: cong them % sat thuong chi mang.
+    public int get_gem_crit_damage_percent() {
+        int percent = 0;
+        for (int gemId : p.socketed_gems()) {
+            percent += GemRules.critDamagePercent(gemId);
+        }
+        return percent;
     }
 
     public int get_crit() {
         int crit = total_item_param(33) + total_skill_param(33);
         crit += get_point(1) * 2;
         crit += (p.luyenthe * 20);
-        return crit;
+        return apply_khai_hoan_penalty(crit);
     }
 
     public int get_percent_def() {
@@ -358,6 +379,7 @@ public class Body {
         if (ef != null) {
             def += ef.param;
         }
+        def += p.lantern_def_param();
         return def;
     }
 
@@ -464,6 +486,7 @@ public class Body {
             }
         }
         perct += ((p.kinhmach[0] - 1) * 5 + p.kinhmach[1]) * 100;
+        perct += p.lantern_param(LanternRules.EFF_DAME);
         return perct;
     }
 
@@ -499,6 +522,7 @@ public class Body {
                 }
             }
         }
+        percent += p.lantern_param(LanternRules.EFF_DAME);
         return percent;
     }
 

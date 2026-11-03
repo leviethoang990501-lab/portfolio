@@ -671,12 +671,12 @@ public class Process_Yes_no_box {
                 }
                 case 9: {
                     if (Map.is_map_chien_truong(conn.p.map.map_id)) {
-                         if (conn.p.get_vang() >= conn.p.vang_ct) {
+                         if (conn.p.get_vang() >= core.BattlefieldRules.reviveCost(conn.p.ct_revive_count)) {
                             conn.p.isdie = false;
                             conn.p.hp = conn.p.body.get_max_hp();
                             conn.p.mp = conn.p.body.get_max_mp();
-                            conn.p.update_vang(-conn.p.vang_ct);
-                            conn.p.vang_ct = (conn.p.vang_ct * 15)/10;
+                            conn.p.update_vang(-core.BattlefieldRules.reviveCost(conn.p.ct_revive_count));
+                            conn.p.ct_revive_count++;
                             conn.p.item.char_inventory(5);
                             Service.send_char_main_in4(conn.p);
                             // chest in4

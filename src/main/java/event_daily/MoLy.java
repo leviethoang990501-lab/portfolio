@@ -11,7 +11,7 @@ public class MoLy {
 
     public static short[] item_mo_ly = new short[]{2939, 4640, 4639, 4641, 4638, 14};
     public static byte[] item_mo_ly_type = new byte[]{3, 3, 3, 3, 3, 7};
-    public static byte[] item_mo_ly_percent = new byte[]{15, 5, 5, 5, 5, 10};
+    public static byte[] item_mo_ly_percent = new byte[]{25, 10, 10, 10, 10, 20};
 
     public static void show_table_to_choose_item(Player p) throws IOException {
         p.id_select_mo_ly = -1;

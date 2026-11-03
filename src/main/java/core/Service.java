@@ -640,6 +640,11 @@ public class Service {
                 if (param > 0 && p.get_eff(-206) != null) {
                     param = param / 2;
                 }
+                // ngoc luc bao thuong: khong hoi hp trong thoi gian hieu ung
+                EffTemplate efLucBao = p.get_eff(GemRules.EFF_LUC_BAO);
+                if (param > 0 && efLucBao != null && efLucBao.param == GemRules.WITH_PENALTY) {
+                    param = 0;
+                }
                 long par_can_add = 2_000_000_000 - p.hp;
                 if (param > par_can_add) {
                     param = par_can_add;

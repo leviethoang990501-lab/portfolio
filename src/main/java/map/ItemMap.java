@@ -1,6 +1,7 @@
 package map;
 
 import java.util.List;
+import java.util.Set;
 import template.Option;
 
 public class ItemMap {
@@ -13,4 +14,10 @@ public class ItemMap {
 	public short quantity;
 	public List<Option> op;
         public byte lock = 1;
+        public Set<String> sharedWith; // nguoi tham gia top dame cung duoc nhat
+
+        public boolean canPick(int playerId, String playerName) {
+            return idmaster == -1 || idmaster == playerId
+                    || (sharedWith != null && sharedWith.contains(playerName));
+        }
 }

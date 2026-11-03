@@ -3755,7 +3755,7 @@ public class MenuController {
                         case 7:
                         case 8:
                         case 9: {
-                            short[] id_ = new short[]{3, 18};
+                            short[] id_ = new short[]{2, 18};
                             short[] id2_ = new short[]{5, 10};
                             short[] id3_ = new short[]{7, 4};
                             for (int i = 0; i < id_.length; i++) {
@@ -4374,6 +4374,10 @@ public class MenuController {
         }
         switch (index) {
             case 0: { // dang ky
+                if (conn.p.level < BattlefieldRules.MIN_LEVEL) {
+                    Service.send_notice_box(conn, "Cần đạt cấp " + BattlefieldRules.MIN_LEVEL + " để tham gia chiến trường");
+                    return;
+                }
                 send_menu_select(conn, 998, new String[]{"Đăng ký bằng 500.000 vàng", "Đăng ký bằng 2 ngọc"});
                 break;
             }

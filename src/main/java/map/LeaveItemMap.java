@@ -4,8 +4,12 @@ import event.EventManager;
 import event.Event_1;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import core.BossRules;
 import client.Player;
+import core.LanternRules;
 import core.Manager;
 import core.Util;
 import io.Message;
@@ -65,6 +69,7 @@ public class LeaveItemMap {
 				if (ef != null) {
 					vang_drop += (vang_drop * (ef.param / 100)) / 100;
 				}
+				vang_drop += (vang_drop * (p.lantern_param(LanternRules.EFF_GOLD) / 100)) / 100;
 				map.item_map[index_item_map].quantity = (short) Math.min(Short.MAX_VALUE, Math.max(1, vang_drop));
 				map.item_map[index_item_map].category = 4;
 				map.item_map[index_item_map].idmaster = (short) p.id;
@@ -321,9 +326,45 @@ public class LeaveItemMap {
 		}
 	}
 
-	public static void leave_violet_medal_material(Map map, int targetIndex, Player p) throws IOException {
-		short id = Medal_Material.m_violet[Util.random(Medal_Material.m_violet.length)];
+	public static void leave_yellow_medal_material(Map map, int targetIndex, Player p) throws IOException {
+		short id = Medal_Material.m_yellow[Util.random(Medal_Material.m_yellow.length)];
 		leave_item_by_type7(map, id, p, targetIndex);
+	}
+
+	// Danh dau cac vat pham moi rot de nhung nguoi tham gia cung nhat duoc.
+	public static void share_new_drops(Map map, ItemMap[] before, Set<String> names) {
+		Set<String> sharedWith = new HashSet<>(names);
+		for (int i = 0; i < map.item_map.length; i++) {
+			if (map.item_map[i] != null && map.item_map[i] != before[i]) {
+				map.item_map[i].sharedWith = sharedWith;
+			}
+		}
+	}
+
+	// Moi nhat danh tu duoi 50% hp rot 1 nguyen lieu tim cho den khi het phan boss mang theo.
+	public static void leave_boss_violet_material(Map map, Mob_in_map mob, Player p) throws IOException {
+		short[] types = BossRules.violetTypes(mob.template.mob_id);
+		if (types.length == 0 || mob.violet_dropped >= BossRules.VIOLET_STOCK) {
+			return;
+		}
+		mob.violet_dropped++;
+		ItemMap[] before = map.item_map.clone();
+		leave_item_by_type7(map, types[Util.random(types.length)], p, mob.index);
+		share_new_drops(map, before, mob.top_dame.keySet());
+	}
+
+	public static void leave_house_yellow_material(Map map, Mob_in_map mob, Player p) throws IOException {
+		ItemMap[] before = map.item_map.clone();
+		leave_yellow_medal_material(map, mob.index, p);
+		share_new_drops(map, before, mob.top_dame.keySet());
+	}
+
+	public static void leave_dungeon_boss_material(Map map, int index, Player p, Set<String> names) throws IOException {
+		ItemMap[] before = map.item_map.clone();
+		for (int i = 0; i < BossRules.DUNGEON_BLUE_DROP; i++) {
+			leave_item_by_type7(map, Medal_Material.m_blue[Util.random(Medal_Material.m_blue.length)], p, index);
+		}
+		share_new_drops(map, before, names);
 	}
 
 	public static void leave_random_skill_book(Map map, Mob_in_map mob, Player p) throws IOException {
@@ -338,75 +379,64 @@ public class LeaveItemMap {
 			// roi do boss co dinh
 			short[] id_item_leave4 = new short[] {};
 			short[] id_item_leave7 = new short[] {};
-			short id_medal_material = -1;
 			boolean leave_orange_equipment = false;
 			switch (mob.template.mob_id) {
 				case 101: { // xa nu
 					id_item_leave4 = new short[] {-1, 53};
 					id_item_leave7 = new short[] {14, 0, 4, 12, 2, 1, 10};
 					leave_orange_equipment = true;
-					id_medal_material = 138;
 					break;
 				}
 				case 84: { // de vang
 					id_item_leave4 = new short[] {-1, 27, 54};
 					id_item_leave7 = new short[] {0, 4, 8, 9, 10, 13, 14};
 					leave_orange_equipment = true;
-					id_medal_material = 139;
 					break;
 				}
 				case 83: { // de bac
 					id_item_leave4 = new short[] {-1, 53};
 					id_item_leave7 = new short[] {0, 4, 12, 11, 2, 3, 14};
 					leave_orange_equipment = true;
-					id_medal_material = 141;
 					break;
 				}
 				case 103: { // bo cap chua
 					id_item_leave4 = new short[] {-1, 48, 50, 9, 18, 2, 5};
 					id_item_leave7 = new short[] {0};
-					id_medal_material = 136;
 					break;
 				}
 				case 104: { // quy 1 mat
 					id_item_leave4 = new short[] {-1, 10};
 					id_item_leave7 = new short[] {2, 3, 8, 9, 10, 12};
-					id_medal_material = 137;
 					break;
 				}
 				case 105: { // quy dau bo
 					id_item_leave4 = new short[] {-1, 49, 54};
 					id_item_leave7 = new short[] {0, 4, 13, 11, 2, 3};
 					leave_orange_equipment = true;
-					id_medal_material = 140;
 					break;
 				}
 				case 106: { // ky sy dia nguc
 					id_item_leave4 = new short[] {-1, 18, 54, 53};
 					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
 					leave_orange_equipment = true;
-					id_medal_material = (short) Util.random(142, 144);
 					break;
 				}
 				case 149: { // nhen chua
 					id_item_leave4 = new short[] {-1, 18, 54, 53};
 					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
 					leave_orange_equipment = true;
-					id_medal_material = (short) Util.random(144, 146);
 					break;
 				}
 				case 155: { // giant skeleton
 					id_item_leave4 = new short[] {-1, 18, 54, 53};
 					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
 					leave_orange_equipment = true;
-					id_medal_material = (short) Util.random(136, 146);
 					break;
 				}
                                 case 174: { // cho 3 dau
 					id_item_leave4 = new short[] {-1, 18, 54, 53};
 					id_item_leave7 = new short[] {13, 11, 2, 3, 14};
 					leave_orange_equipment = true;
-					id_medal_material = (short) Util.random(136, 146);
 					break;
 				}
 			}
@@ -422,9 +452,6 @@ public class LeaveItemMap {
 			}
 			if (leave_orange_equipment) {
 				leave_orange_equipment(map, mob, p);
-			}
-			if (id_medal_material >= 0) {
-				leave_item_by_type7(map, id_medal_material, p, mob.index);
 			}
                         if (50>Util.random(120)) {
                             leave_item_by_type4(map,(short) 319, p, mob.index);

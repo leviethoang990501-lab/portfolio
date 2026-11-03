@@ -2,6 +2,7 @@ package client;
 
 import core.GameSrc;
 import core.Log;
+import core.LanternRules;
 import core.Manager;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -756,10 +757,32 @@ public class UseItem {
        break;
             }
             default: {
+                if (LanternRules.isLantern(id)) {
+                    use_lantern(conn, id);
+                    break;
+                }
                 Service.send_notice_nobox_white(conn, "4Chưa có chức năng này");
                 break;
             }
         }
+    }
+
+    private static void use_lantern(Session conn, short id) throws IOException {
+        if (conn.p.item.total_item_by_id(4, id) <= 0) {
+            return;
+        }
+        int effId = LanternRules.effectId(id);
+        EffTemplate current = conn.p.get_eff(effId);
+        long remaining = (current == null) ? 0L : current.time - System.currentTimeMillis();
+        long time = LanternRules.nextDuration(remaining, LanternRules.duration(id));
+        if (time == LanternRules.ALREADY_PERMANENT) {
+            Service.send_notice_nobox_white(conn, "Bạn đã có hiệu ứng vĩnh viễn của lồng đèn này");
+            return;
+        }
+        conn.p.add_eff(effId, LanternRules.effectParam(effId), time);
+        conn.p.item.remove(4, id, 1);
+        Service.send_char_main_in4(conn.p);
+        Service.send_notice_nobox_white(conn, "Đã sử dụng " + ItemTemplate4.item.get(id).getName());
     }
 
     private static void use_item_mount(Session conn, short id) throws IOException {

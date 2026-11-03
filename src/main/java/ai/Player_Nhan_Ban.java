@@ -41,7 +41,7 @@ public class Player_Nhan_Ban {
 		int size5 = Map.get_map_by_id(54)[0].maxzone;
 		int i = -2;
 		List<Player_Nhan_Ban> result = new ArrayList<>();
-		int size_linh_canh = 15;
+		int size_linh_canh = BattlefieldRules.GUARDS_PER_HOUSE;
 		for (int j = 0; j < size2; j++) {
 			for (int j2 = 0; j2 < size_linh_canh; j2++) { // 20 linh canh
 				add_linh_canh(result, i--, 56, j, 2);
@@ -303,6 +303,9 @@ public class Player_Nhan_Ban {
 				if (spDame.damage > 0) {
 					temp.hp -= spDame.damage;
 				}
+				if (dame > 0 && temp.hp > 0 && BattlefieldRules.HIT_YELLOW_DROP_PERCENT > Util.random(100)) {
+					LeaveItemMap.leave_yellow_medal_material(map, temp.id, p);
+				}
 				if (temp.hp <= 0) {
 					temp.hp = 0;
 					temp.isdie = true;
@@ -327,7 +330,7 @@ public class Player_Nhan_Ban {
 					m3.cleanup();
 					//
 					p.update_point_arena(BattlefieldRules.GUARD_POINT);
-					LeaveItemMap.leave_violet_medal_material(map, temp.id, p);
+					LeaveItemMap.leave_yellow_medal_material(map, temp.id, p);
 				}
 				//
 				m.writer().writeInt((int) dame); // dame

@@ -16,6 +16,7 @@ import core.Util;
 import core.SkillRules;
 import core.VietHoangProfile;
 import core.ExpRules;
+import core.GemRules;
 import core.BattlefieldRules;
 import core.BossRules;
 import event.BossEvent;
@@ -42,6 +43,7 @@ import java.sql.SQLException;
 public class MapService {
 
     public static void enter(Map map, Player p) {
+        p.time_enter_map = System.currentTimeMillis();
         synchronized (map) {
             map.players.add(p);
         }
@@ -541,17 +543,13 @@ public class MapService {
             if (dmob > 0 && p_target.hp > 0) {
                 EffTemplate efLucBao = p_target.get_eff(-213);
                 if (efLucBao != null) {
-                    long heal = (dmob * 10) / 100;
-                    p_target.hp += heal;
+                    long heal = (dmob * GemRules.LUC_BAO_PERCENT) / 100;
+                    p_target.hp = Math.min(p_target.hp + heal, p_target.body.get_max_hp());
                 }
             }
-            // ngoc khai hoan: tinh hit bi danh
+            // ngoc khai hoan, luc bao: tinh hit bi danh
             if (dmob > 0 && p_target.hp > 0) {
-                p_target.hit_count_ngoc_khai_hoan++;
-                if (p_target.hit_count_ngoc_khai_hoan >= 25) {
-                    p_target.hit_count_ngoc_khai_hoan = 0;
-                    p_target.add_eff(-211, 20, 3000);
-                }
+                p_target.process_ngoc_bi_danh();
             }
             int percent_stun = 0;
             int time_stun = 0;
@@ -679,6 +677,9 @@ public class MapService {
             throws IOException {
         if (p2 == null) {
             p2 = p;
+        }
+        if (p2.get_eff(GemRules.EFF_KHAI_HOAN) != null) {
+            return;
         }
         Message m = new Message(75);
         m.writer().writeByte(type);
@@ -1703,7 +1704,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         }
         if (type == 1) { // hsl
             if (Map.is_map_chien_truong(map.map_id)) {
-                Service.send_box_input_yesno(conn, 9, "Cần " + conn.p.vang_ct + " vàng cho mỗi lần hồi sinh tại chỗ ok?");
+                Service.send_box_input_yesno(conn, 9, "Cần " + BattlefieldRules.reviveCost(conn.p.ct_revive_count) + " vàng cho mỗi lần hồi sinh tại chỗ ok?");
             } else {
                 Service.send_box_input_yesno(conn, 9, "Cần 5 ngọc cho mỗi lần hồi sinh tại chỗ ok?");
             }
@@ -1990,17 +1991,12 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                     }
                     Service.usepotion(conn.p, 0, hp);
                 }
-                // ngoc phong ma moi: hoi hp khi hp < 20%
-                temp2 = conn.p.get_eff(-212);
+                // ngoc phong ma moi: hoi hp sau moi nhat danh
+                temp2 = conn.p.get_eff(GemRules.EFF_PHONG_MA);
                 if (temp2 != null) {
-                    long max_hp = conn.p.body.get_max_hp();
-                    if (max_hp > 0 && conn.p.hp < max_hp / 5) {
-                        long heal = (max_hp * temp2.param) / 100;
-                        conn.p.hp += heal;
-                        if (conn.p.hp > max_hp) {
-                            conn.p.hp = max_hp;
-                        }
-                        Service.usepotion(conn.p, 0, (int) heal);
+                    long heal = (conn.p.body.get_max_hp() * temp2.param) / 100;
+                    if (heal > 0) {
+                        Service.usepotion(conn.p, 0, heal);
                     }
                 }
 
@@ -2243,7 +2239,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                                         m_p_2_nb.writer().writeShort(temp_mob.nhanban.id_p);
                                         boolean crit = conn.p.body.get_crit() > Util.random(0, 10000);
                                         if (crit) {
-                                            dame *= 2;
+                                            dame = GemRules.critDamage(dame, conn.p.body.get_gem_crit_damage_percent());
                                         }
                                         int pierce_ = conn.p.body.get_pierce();
                                         if (pierce_ > 5000) {
@@ -2412,7 +2408,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         }
         boolean react_dame = rc_dame > Util.random(0, 15000);
         if (crit) {
-            dame *= 2;
+            dame = GemRules.critDamage(dame, p.body.get_gem_crit_damage_percent());
         }
         if (!crit) {
             int pier = p.body.get_pierce();
@@ -2504,17 +2500,13 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         if (dame > 0 && p0.hp > 0) {
             EffTemplate efLucBao = p0.get_eff(-213);
             if (efLucBao != null) {
-                long heal = (dame * 10) / 100;
-                p0.hp += heal;
+                long heal = (dame * GemRules.LUC_BAO_PERCENT) / 100;
+                p0.hp = Math.min(p0.hp + heal, p0.body.get_max_hp());
             }
         }
-        // ngoc khai hoan: tinh hit bi danh
+        // ngoc khai hoan, luc bao: tinh hit bi danh
         if (dame > 0 && p0.hp > 0) {
-            p0.hit_count_ngoc_khai_hoan++;
-            if (p0.hit_count_ngoc_khai_hoan >= 25) {
-                p0.hit_count_ngoc_khai_hoan = 0;
-                p0.add_eff(-211, 20, 3000);
-            }
+            p0.process_ngoc_bi_danh();
         }
         // lu loan: khong tan cong duoc
         if (dame > 0 && p0.get_eff(-205) != null) {
@@ -2653,6 +2645,10 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                 }
             }
         }
+        // ngoc hon nguyen: tinh hit danh trung nguoi khac
+        if (dame > 0) {
+            p.process_ngoc_danh_trung();
+        }
         // tang hinh: khi tan cong hoac bi tan cong co ty le tang hinh
         if (dame > 0 && p.hp > 0) {
             int thParam = p.body.get_equipment_effect(82);
@@ -2667,7 +2663,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         // ngu dan: tat pet doi thu 30s
         if (dame > 0 && p0.hp > 0) {
             int ndParam = get_combat_effect_param(p, -232, -90);
-            if (ndParam > 0 && (ndParam >= 100 || ndParam > Util.random(10000))) {
+            if (p0.get_eff(GemRules.EFF_KHAI_HOAN) == null && ndParam > 0 && (ndParam >= 100 || ndParam > Util.random(10000))) {
                 p0.time_ngu_dan_target = System.currentTimeMillis() + 30000L;
                 p0.show_eff_p(19, 1000);
             }
@@ -2675,7 +2671,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         // tan phere: giam mp doi thu con 1%, cam hoi mp 5s
         if (dame > 0 && p0.hp > 0) {
             int tpParam = get_combat_effect_param(p, -236, -92);
-            if (tpParam > 0 && (tpParam >= 100 || tpParam > Util.random(10000))) {
+            if (p0.get_eff(GemRules.EFF_KHAI_HOAN) == null && tpParam > 0 && (tpParam >= 100 || tpParam > Util.random(10000))) {
                 p0.mp = 1;
                 p0.add_eff(-236, 1, 5000);
                 p0.show_eff_p(21, 1000);
@@ -3033,7 +3029,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         boolean crit = cr > Util.random(0, 15000);
         boolean pierce = false;
         if (crit) {
-            dame *= 2;
+            dame = GemRules.critDamage(dame, p.body.get_gem_crit_damage_percent());
         }
         if (!crit) {
             int pier = p.body.get_pierce();
@@ -3084,6 +3080,15 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                 }
             }
         }
+        // ngoc sinh menh: tang st len boss, ngoc thuong giam st len quai
+        EffTemplate efSinhMenh = p.get_eff(GemRules.EFF_SINH_MENH);
+        if (efSinhMenh != null) {
+            if (mob.is_boss) {
+                dame = (dame * GemRules.SINH_MENH_BOSS_PERCENT) / 100;
+            } else if (efSinhMenh.param == GemRules.WITH_PENALTY) {
+                dame = (dame * GemRules.SINH_MENH_MOB_PERCENT) / 100;
+            }
+        }
         boolean check_mob_roi_ngoc_kham
                 = mob.template.mob_id == 167 || mob.template.mob_id == 168 || mob.template.mob_id == 169
                 || mob.template.mob_id == 170 || mob.template.mob_id == 171 || mob.template.mob_id == 172;
@@ -3110,6 +3115,10 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         // Special damage (Light / Dark) calculation
         SpecialDamage spDame = SpecialDamage.calculate(p);
         if (!bossLevelAllowed) spDame.damage = 0;
+        // ngoc hon nguyen: tinh hit danh trung boss
+        if (mob.is_boss && dame > 0 && bossLevelAllowed) {
+            p.process_ngoc_danh_trung();
+        }
 
         if (BattlefieldRules.isHouse(mob.template.mob_id)) {
             int divisor = BattlefieldRules.houseDamageDivisor(ChienTruong.gI().hasLivingGuard(map));
@@ -3184,6 +3193,16 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
                 }
             }
         }
+        // boss duoi 50% hp: moi nhat danh rot nguyen lieu tim
+        if (mob.is_boss && dame > 0 && bossLevelAllowed && !mob.isdie && mob.hp <= mob.hpmax / 2) {
+            LeaveItemMap.leave_boss_violet_material(map, mob, p);
+        }
+        // nha chinh: danh trung co ty le rot nguyen lieu vang
+        if (dame > 0 && !mob.isdie && Map.is_map_chien_truong(map.map_id)
+                && BattlefieldRules.isHouse(mob.template.mob_id)
+                && BattlefieldRules.HIT_YELLOW_DROP_PERCENT > Util.random(100)) {
+            LeaveItemMap.leave_house_yellow_material(map, mob, p);
+        }
         // if mob die
         if (mob.hp <= 0) {
             mob.hp = 0;
@@ -3221,13 +3240,16 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
                     p.update_point_arena(BattlefieldRules.HOUSE_POINT);
                     Manager.gI().chatKTGprocess("@Server : " + p.name + " đã đánh sập " + mob.template.name);
                     ChienTruong.gI().update_house_die(mob.template.mob_id);
+                    ItemMap[] before = map.item_map.clone();
                     if (BattlefieldRules.HOUSE_SKILL_BOOK_DROP_PERCENT > Util.random(100)) {
                         LeaveItemMap.leave_random_skill_book(map, mob, p);
                     }
+                    LeaveItemMap.share_new_drops(map, before, mob.top_dame.keySet());
+                    mob.top_dame.clear();
                 } else if (Map.is_map_chien_truong(map.map_id)) {
-                    p.update_point_arena(BattlefieldRules.MONSTER_POINT);
-                    if (BattlefieldRules.MONSTER_VIOLET_DROP_PERCENT > Util.random(100)) {
-                        LeaveItemMap.leave_violet_medal_material(map, mob.index, p);
+                    p.update_point_arena(mob.is_boss ? BattlefieldRules.BOSS_POINT : BattlefieldRules.MONSTER_POINT);
+                    if (BattlefieldRules.MONSTER_YELLOW_DROP_PERCENT > Util.random(100)) {
+                        LeaveItemMap.leave_yellow_medal_material(map, mob.index, p);
                     }
                 }
 
@@ -3243,8 +3265,14 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
 
                     mob.is_boss_active = false;
                     Manager.gI().chatKTGprocess("@Server : " + p.name + " đã tiêu diệt " + mob.template.name + ", Top sát thương lên boss: " + p_name + " gây " + top_dame + " sát thương");
+                    ItemMap[] before = map.item_map.clone();
                     LeaveItemMap.leave_item_boss(map, mob, p);
+                    LeaveItemMap.share_new_drops(map, before, mob.top_dame.keySet());
+                    mob.top_dame.clear();
+                    mob.violet_dropped = 0;
+                    mob.time_despawn = 0;
                     Mob_in_map.num_boss--;
+                    Mob_in_map.spawn_next_zone_boss(mob);
                 } else {
                     // item drop
                     if (Math.abs(mob.level - p.level) <= 10) {
@@ -3527,7 +3555,7 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
                                         // }
                                         // m.cleanup();
                                         p0.id_henshin = 102;
-                                        p0.time_henshin = System.currentTimeMillis() + 6_000L;
+                                        p0.time_henshin = System.currentTimeMillis() + BattlefieldRules.HENSHIN_MILLIS;
                                         for (int i = 0; i < map.players.size(); i++) {
                                             Player p01 = map.players.get(i);
                                             MapService.send_in4_other_char(map, p01, p0);
@@ -3539,8 +3567,9 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
                         }
                         p.item.remove(4, id, 1);
                         p.update_point_arena(10);
-                        map.time_use_item_arena = System.currentTimeMillis() + 250_000L;
-                        p.time_use_item_arena = System.currentTimeMillis() + 250_000L;
+                        long itemCooldown = Util.random(BattlefieldRules.ITEM_COOLDOWN_MIN_MILLIS, BattlefieldRules.ITEM_COOLDOWN_MAX_MILLIS + 1);
+                        map.time_use_item_arena = System.currentTimeMillis() + itemCooldown;
+                        p.time_use_item_arena = System.currentTimeMillis() + itemCooldown + BattlefieldRules.ITEM_PERSONAL_EXTRA_MILLIS;
                     }
                 } else {
                     Service.send_notice_box(p.conn,

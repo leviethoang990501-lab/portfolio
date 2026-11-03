@@ -11,6 +11,7 @@ import client.Pet;
 import client.Player;
 import core.GameSrc;
 import core.Log;
+import core.LanternRules;
 import core.Manager;
 import core.MenuController;
 import core.Service;
@@ -594,6 +595,7 @@ private void auto_chat_npc() {
                     }
 
                 }
+                p.process_eff_lantern();
                 // eff tu tiên
                 if (p.tutien[0] >= 6 && p.time_eff_tutien < System.currentTimeMillis()) {
                     p.time_eff_tutien = System.currentTimeMillis() + 2_000L;
@@ -679,6 +681,9 @@ private void auto_chat_npc() {
                                 }
                             }
                         }
+                        if (LanternRules.isLanternEffect(temp.id)) {
+                            p.hp = Math.min(p.hp, p.body.get_max_hp());
+                        }
                         // cleanup new effects
                         if (temp.id == -200 || temp.id == -201 || temp.id == -202 || temp.id == -203
                                 || temp.id == -204 || temp.id == -205 || temp.id == -206 || temp.id == -210
@@ -687,7 +692,7 @@ private void auto_chat_npc() {
                                 || temp.id == -224 || temp.id == -225 || temp.id == -226 || temp.id == -227
                                 || temp.id == -228 || temp.id == -229 || temp.id == -230 || temp.id == -231
                                 || temp.id == -232 || temp.id == -233 || temp.id == -234 || temp.id == -235
-                                || temp.id == -236) {
+                                || temp.id == -236 || LanternRules.isLanternEffect(temp.id)) {
                             Service.send_char_main_in4(p);
                             for (int j = 0; j < players.size(); j++) {
                                 Player p2 = players.get(j);
@@ -784,6 +789,9 @@ private void auto_chat_npc() {
             }
             // mob
             for (Mob_in_map mob : this.mobs) {
+                if (Mob_in_map.despawn_if_expired(mob, System.currentTimeMillis())) {
+                    Manager.gI().chatKTGprocess("@Server : " + mob.template.name + " đã biến mất.");
+                }
 
                 if ((mob.is_boss && !mob.is_boss_active && mob.time_back < System.currentTimeMillis())
                         || (mob.isdie && mob.template.mob_id >= 89 && mob.template.mob_id <= 92
@@ -1304,11 +1312,11 @@ private void auto_chat_npc() {
                 || (conn.p.in4_auto[4] == -1 && conn.p.in4_auto[5] == 1 && conn.p.in4_auto[6] == 3)) {
             return;
         }
-        if (item_map[id].idmaster != -1 && conn.p.id != item_map[id].idmaster) {
+        if (!item_map[id].canPick(conn.p.id, conn.p.name)) {
             Service.send_notice_nobox_white(conn, "Vật phẩm của người khác");
             return;
         }
-        if (item_map[id] != null && (item_map[id].idmaster == -1 || conn.p.id == item_map[id].idmaster)
+        if (item_map[id] != null && item_map[id].canPick(conn.p.id, conn.p.name)
                 && (item_map[id].time_pick < System.currentTimeMillis())) {
             if (type == 4 && item_map[id].id_item == -1) { // vang
                 if (conn.p.in4_auto[5] == 0) {
@@ -1633,6 +1641,20 @@ private void auto_chat_npc() {
 
     public boolean has_monster() {
         return has_monster(this.map_id);
+    }
+
+    public boolean house_faction_full(Player p) {
+        if (!core.BattlefieldRules.isHouseMap(this.map_id)) {
+            return false;
+        }
+        int count = 0;
+        for (int i = 0; i < this.players.size(); i++) {
+            Player p0 = this.players.get(i);
+            if (p0 != null && p0 != p && p0.typepk == p.typepk) {
+                count++;
+            }
+        }
+        return count >= core.BattlefieldRules.MAX_FACTION_PER_HOUSE;
     }
 
     public static boolean is_khu_2(Map map) {

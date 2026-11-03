@@ -81,9 +81,9 @@ public class Manager {
         228, 229, 230, 231, 232, 233, 234
     };
     public static final short[] EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS = {
-        144, 145, 173, 174, 175, 176,
-        208, 209, 210, 211, 212, 213, 214,
-        260, 263, 264, 265, 266, 267, 303, 308,
+        144, 173, 174, 175, 176,
+        208, 210, 211, 212, 213, 214,
+        260, 263, 264, 265, 266, 267, 303,
         309, 310, 311, 312
     };
     private static final long HALLOWEEN_FASHION_PRICE = 10L;
@@ -858,7 +858,7 @@ public class Manager {
             return 1L;
         }
         long currentPrice = ItemTemplate4.item.get(itemId).getPrice();
-        if (itemId == 145 || itemId == 308 || currentPrice <= 0) {
+        if (currentPrice <= 0) {
             return 10L;
         }
         return currentPrice;

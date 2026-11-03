@@ -6,7 +6,9 @@ import core.EquipmentRules;
 import core.SkillRules;
 import core.TestTopUpRules;
 import core.UpgradeRules;
+import core.GemRules;
 import core.Khu2Rules;
+import core.LanternRules;
 import core.ExpRules;
 import core.BagUpgradeRules;
 import core.BossRules;
@@ -49,6 +51,9 @@ public final class CoreRegressionTest {
         testAllEquipmentOptionsAreSent();
         testHalloweenShopDistribution();
         testEventLanternCatalog();
+        testLanternRules();
+        testGemRules();
+        testBossMaterialRules();
         testGemEquipmentShopPrices();
         testHighGemShopPriceReduction();
         System.out.println("PASS - " + checks + " regression checks");
@@ -251,6 +256,23 @@ public final class CoreRegressionTest {
 
     private static void testSoloBattlefieldBalance() {
         check(BattlefieldRules.ON_DEMAND_REGISTER_SECONDS == 30, "battlefield on-demand countdown");
+        check(BattlefieldRules.FEE_VANG == 500_000 && BattlefieldRules.FEE_NGOC == 2, "prize pool equals the fee");
+        check(BattlefieldRules.MATCH_SECONDS - BattlefieldRules.FIRST_BOSS_TIME_LEFT == 300
+                && BattlefieldRules.MATCH_SECONDS - BattlefieldRules.SECOND_BOSS_TIME_LEFT == 600, "Xa Nu minutes");
+        check(BattlefieldRules.MONSTER_POINT == 2 && BattlefieldRules.BOSS_POINT == 30
+                && BattlefieldRules.GUARD_POINT == 2 && BattlefieldRules.HOUSE_POINT == 20, "battlefield points");
+        check(BattlefieldRules.reviveCost(0) == 500 && BattlefieldRules.reviveCost(10) == 10_000
+                && BattlefieldRules.reviveCost(13) == 16_000, "listed revive costs");
+        check(BattlefieldRules.reviveCost(14) == 18_000 && BattlefieldRules.reviveCost(23) == 36_000
+                && BattlefieldRules.reviveCost(24) == 55_000 && BattlefieldRules.reviveCost(99) == 55_000,
+                "revive costs after the list");
+        check(BattlefieldRules.houseMapOwner(54) == 5 && BattlefieldRules.houseMapOwner(60) == 1
+                && !BattlefieldRules.isHouseMap(1), "house map owners");
+        check(BattlefieldRules.mustWaitZoneChange(54, 2, 1_000L, 3_000), "wait in enemy house");
+        check(!BattlefieldRules.mustWaitZoneChange(54, 5, 1_000L, 3_000), "own house has no wait");
+        check(!BattlefieldRules.mustWaitZoneChange(54, 2, 5_000L, 3_000), "wait ends after 5 seconds");
+        check(!BattlefieldRules.mustWaitZoneChange(54, 2, 1_000L, 900), "no wait from minute 45");
+        check(!BattlefieldRules.mustWaitZoneChange(1, 2, 1_000L, 3_000), "normal maps have no wait");
         check(BattlefieldRules.GUARD_HP == 300_000, "solo battlefield guard HP");
         check(BattlefieldRules.HOUSE_HP == 5_000_000, "solo battlefield house HP");
         check(BattlefieldRules.houseDamageDivisor(true) == 100, "guarded house damage reduction");
@@ -373,14 +395,159 @@ public final class CoreRegressionTest {
                 "non-equipment shops do not receive Halloween equipment");
     }
 
+    private static map.Mob_in_map testBoss(template.Mob type, int mapId, int zoneId) {
+        map.Mob_in_map boss = new map.Mob_in_map();
+        boss.template = type;
+        boss.is_boss = true;
+        boss.map_id = (byte) mapId;
+        boss.zone_id = (byte) zoneId;
+        return boss;
+    }
+
+    private static void testBossMaterialRules() {
+        for (int bossId : new int[]{103, 104, 101, 84, 105, 83, 106, 149, 155, 174}) {
+            short[] types = BossRules.violetTypes(bossId);
+            check(types.length >= 2 && types.length <= 3, "boss " + bossId + " carries 2-3 violet types");
+            for (short id : types) {
+                check(id >= 136 && id <= 145, "boss " + bossId + " material " + id + " is violet");
+            }
+        }
+        check(BossRules.violetTypes(0).length == 0, "normal mobs carry no violet material");
+        check(BossRules.VIOLET_STOCK > 0, "bosses carry violet stock");
+        template.Mob quy = new template.Mob();
+        template.Mob de = new template.Mob();
+        map.Mob_in_map zone0 = testBoss(quy, 5, 0);
+        map.Mob_in_map zone1 = testBoss(quy, 5, 1);
+        map.Mob_in_map zone2 = testBoss(quy, 5, 2);
+        List<map.Mob_in_map> bosses = List.of(zone2, zone1, zone0, testBoss(de, 5, 1), testBoss(quy, 6, 1));
+        check(map.Mob_in_map.find_next_zone_boss(bosses, zone0) == zone1, "next boss spawns in the next zone");
+        zone1.is_boss_active = true;
+        check(map.Mob_in_map.find_next_zone_boss(bosses, zone0) == zone2, "active zones are skipped");
+        check(map.Mob_in_map.find_next_zone_boss(bosses, zone2) == null, "chain stops at the last zone");
+        zone1.time_despawn = 1000L;
+        zone1.isdie = false;
+        int numBoss = map.Mob_in_map.num_boss;
+        check(!map.Mob_in_map.despawn_if_expired(zone1, 999L), "boss stays before 3 hours");
+        check(map.Mob_in_map.despawn_if_expired(zone1, 1000L) && !zone1.is_boss_active && zone1.isdie,
+                "boss disappears after 3 hours");
+        map.Mob_in_map.num_boss = numBoss;
+        check(!map.Mob_in_map.despawn_if_expired(zone0, Long.MAX_VALUE), "inactive boss is left alone");
+        check(BossRules.LIFETIME_MILLIS == 10_800_000L, "boss lifetime is 3 hours");
+        check(BossRules.isDungeonBossWave(21) && !BossRules.isDungeonBossWave(20), "only the last wave has the boss");
+        for (int mode = 0; mode < 5; mode++) {
+            check(BossRules.soloHp(BossRules.dungeonBossId(mode), 1) > 1, "dungeon boss " + mode + " is a real boss");
+        }
+        check(BossRules.dungeonBossId(99) == BossRules.dungeonBossId(4), "unknown mode falls back to hardest boss");
+        check(GemRules.SOCKET_SUCCESS_PERCENT == 55, "socket success rate");
+        map.ItemMap item = new map.ItemMap();
+        item.idmaster = 5;
+        check(item.canPick(5, "a") && !item.canPick(6, "b"), "only the owner picks unshared items");
+        item.sharedWith = new HashSet<>(List.of("b"));
+        check(item.canPick(6, "b") && !item.canPick(7, "c"), "participants pick shared items");
+        item.idmaster = -1;
+        check(item.canPick(7, "c"), "released items are free");
+    }
+
+    private static void testGemRules() {
+        check(GemRules.family(352) == GemRules.FAMILY_HON_NGUYEN && GemRules.family(386) == GemRules.FAMILY_HON_NGUYEN,
+                "hon nguyen ids");
+        check(GemRules.family(361) == GemRules.FAMILY_KHAI_HOAN && GemRules.family(387) == GemRules.FAMILY_KHAI_HOAN,
+                "khai hoan ids");
+        check(GemRules.family(362) == GemRules.FAMILY_LUC_BAO && GemRules.family(396) == GemRules.FAMILY_LUC_BAO,
+                "luc bao ids");
+        check(GemRules.family(371) == GemRules.FAMILY_PHONG_MA && GemRules.family(397) == GemRules.FAMILY_PHONG_MA,
+                "phong ma ids");
+        check(GemRules.family(372) == GemRules.FAMILY_SINH_MENH && GemRules.family(406) == GemRules.FAMILY_SINH_MENH,
+                "sinh menh ids");
+        check(GemRules.family(381) == GemRules.FAMILY_TAM_LINH && GemRules.family(407) == GemRules.FAMILY_TAM_LINH,
+                "tam linh ids");
+        check(GemRules.family(23) == GemRules.FAMILY_NONE && GemRules.family(412) == GemRules.FAMILY_NONE,
+                "other gems have no family");
+        check(GemRules.level(352) == 1 && GemRules.level(356) == 5 && GemRules.level(382) == 1
+                && GemRules.level(411) == 5, "gem levels");
+        check(!GemRules.isRefined(381) && GemRules.isRefined(382) && !GemRules.isRefined(412), "refined range");
+
+        check(GemRules.requiredHits(352) == 25 && GemRules.requiredHits(356) == 5
+                && GemRules.requiredHits(391) == 5, "required hits follow descriptions");
+        check(GemRules.lucBaoChance(362) == 5 && GemRules.lucBaoChance(396) == 35, "luc bao chance");
+        check(GemRules.phongMaChance(371) == 35 && GemRules.phongMaChance(401) == 45, "phong ma chance");
+        check(GemRules.phongMaHpPercent(367) == 20 && GemRules.phongMaHpPercent(401) == 70, "phong ma threshold");
+        check(GemRules.phongMaHealPercent(367) == 1 && GemRules.phongMaHealPercent(401) == 10, "phong ma heal");
+        check(GemRules.sinhMenhChance(372) == 20 && GemRules.sinhMenhChance(406) == 45, "sinh menh chance");
+        check(GemRules.critDamagePercent(377) == 3 && GemRules.critDamagePercent(411) == 14
+                && GemRules.critDamagePercent(352) == 0, "tam linh crit damage");
+        check(GemRules.critDamage(1000L, 0) == 2000L && GemRules.critDamage(1000L, 14) == 2140L, "crit formula");
+
+        check(GemRules.bestGem(GemRules.FAMILY_KHAI_HOAN, List.of(357, 391, 361)) == 391, "refined wins same level");
+        check(GemRules.bestGem(GemRules.FAMILY_KHAI_HOAN, List.of(360, 387)) == 360, "higher level wins");
+        check(GemRules.bestGem(GemRules.FAMILY_LUC_BAO, List.of(357)) == -1, "missing family");
+
+        check(GemRules.canSocket(23, 8) && GemRules.canSocket(352, 11) && GemRules.canSocket(391, 8),
+                "weapon gems accepted");
+        check(GemRules.canSocket(362, 0) && GemRules.canSocket(401, 6), "armor gems accepted");
+        check(GemRules.canSocket(372, 4) && GemRules.canSocket(411, 5), "jewelry gems accepted");
+        for (int notGem : new int[]{53, 62, 33, 412}) {
+            check(!GemRules.canSocket(notGem, 8), "non-socket item " + notGem + " rejected");
+        }
+        check(!GemRules.canSocket(362, 8) && !GemRules.canSocket(352, 0) && !GemRules.canSocket(352, 4),
+                "gem on wrong equipment rejected");
+        check(GemRules.isValidDrillTool(33) && GemRules.isValidDrillTool(45) && !GemRules.isValidDrillTool(34),
+                "drill tools");
+        check(GemRules.isResistedByKhaiHoan(-124) && GemRules.isResistedByKhaiHoan(-206)
+                && GemRules.isResistedByKhaiHoan(4), "debuffs resisted");
+        check(!GemRules.isResistedByKhaiHoan(GemRules.EFF_KHAI_HOAN) && !GemRules.isResistedByKhaiHoan(-200)
+                && !GemRules.isResistedByKhaiHoan(23), "buffs not resisted");
+        check(!LanternRules.isLanternEffect(GemRules.EFF_SINH_MENH), "gem and lantern effects do not collide");
+    }
+
+    private static void testLanternRules() {
+        for (short itemId : new short[]{144, 173, 174, 175, 176, 208, 210, 211, 212, 213,
+            214, 260, 263, 264, 265, 266, 267}) {
+            check(LanternRules.isLantern(itemId), "lantern item " + itemId + " can be used");
+            check(LanternRules.duration(itemId) > 0, "lantern item " + itemId + " has a duration");
+            check(LanternRules.isLanternEffect(LanternRules.effectId(itemId)),
+                    "lantern item " + itemId + " grants a lantern effect");
+            check(LanternRules.effectParam(LanternRules.effectId(itemId)) != 0,
+                    "lantern item " + itemId + " effect is not dropped by add_eff");
+        }
+        for (int effId : new int[]{LanternRules.EFF_EXP, LanternRules.EFF_GOLD, LanternRules.EFF_DEF,
+            LanternRules.EFF_DAME, LanternRules.EFF_HP, LanternRules.EFF_BUTTERFLY}) {
+            check(LanternRules.spriteId(effId) >= 81 && LanternRules.spriteId(effId) <= 85,
+                    "lantern effect " + effId + " has a sprite");
+        }
+        check(LanternRules.spriteId(-125) == 0, "other effects show no lantern");
+        check(!LanternRules.isLantern((short) 151), "non-lantern item is rejected");
+        check(!LanternRules.isLanternEffect(-125), "x2 exp effect is not a lantern");
+        check(LanternRules.effectId((short) 144) == LanternRules.EFF_EXP, "gold lantern grants exp");
+        check(LanternRules.effectId((short) 210) == LanternRules.EFF_GOLD, "lotus lantern grants gold");
+        check(LanternRules.effectId((short) 265) == LanternRules.EFF_DEF, "carp lantern grants defence");
+        check(LanternRules.effectId((short) 266) == LanternRules.EFF_DAME, "butterfly lantern grants damage");
+        check(LanternRules.effectId((short) 176) == LanternRules.EFF_HP, "moon lantern grants hp");
+        check(LanternRules.duration((short) 208) > Integer.MAX_VALUE, "30 day duration needs long");
+        for (short itemId : new short[]{145, 209, 308}) {
+            check(!LanternRules.isLantern(itemId), "red lantern " + itemId + " has no effect to consume for");
+        }
+        check(LanternRules.nextDuration(0L, LanternRules.DAY_MILLIS) == LanternRules.DAY_MILLIS,
+                "first lantern starts its full duration");
+        check(LanternRules.nextDuration(-5L, LanternRules.DAY_MILLIS) == LanternRules.DAY_MILLIS,
+                "expired remaining time is ignored");
+        check(LanternRules.nextDuration(LanternRules.HOUR_MILLIS, LanternRules.DAY_MILLIS)
+                == LanternRules.HOUR_MILLIS + LanternRules.DAY_MILLIS, "same lantern extends time");
+        check(LanternRules.nextDuration(LanternRules.PERMANENT_MILLIS - 1000L, LanternRules.DAY_MILLIS)
+                == LanternRules.ALREADY_PERMANENT, "permanent lantern is not consumed again");
+    }
+
     private static void testEventLanternCatalog() {
         Set<Short> lanterns = new HashSet<>();
         for (short itemId : Manager.EVENT_LANTERN_AND_COSMETIC_SHOP_ITEMS) {
             check(lanterns.add(itemId), "event lantern item " + itemId + " is listed once");
         }
-        for (short itemId : new short[]{144, 145, 173, 174, 175, 176, 208, 209, 210, 211, 212, 213,
-            214, 260, 263, 264, 265, 266, 267, 303, 308, 309, 310, 311, 312}) {
+        for (short itemId : new short[]{144, 173, 174, 175, 176, 208, 210, 211, 212, 213,
+            214, 260, 263, 264, 265, 266, 267, 303, 309, 310, 311, 312}) {
             check(lanterns.contains(itemId), "event lantern/cosmetic item " + itemId + " is open for sale");
+        }
+        for (short itemId : new short[]{145, 209, 308}) {
+            check(!lanterns.contains(itemId), "red lantern " + itemId + " is not for sale");
         }
         Set<Short> mounts = new HashSet<>();
         for (short itemId : Manager.EVENT_MOUNT_SHOP_ITEMS) {

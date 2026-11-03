@@ -2071,7 +2071,7 @@ public class GameSrc {
                 Item3 it3 = p.item.bag3[id_item];
                 if (it3 != null) {
                     System.out.println("[KHAM_NGOC] player=" + p.name + " gem=" + id_g1 + " item_type=" + it3.type + " item_name=" + it3.name);
-                    if (!GameSrc.check_item_kham_ngoc_type(id_g1, it3)) {
+                    if (!GemRules.canSocket(id_g1, it3.type)) {
                         System.out.println("[KHAM_NGOC] FAILED check_item_kham_ngoc_type gem=" + id_g1 + " item_type=" + it3.type);
                         Service.send_notice_box(p.conn, "Không thể khảm ngọc này lên vật phẩm này!");
                         return;
@@ -2089,8 +2089,12 @@ public class GameSrc {
                         return;
                     }
                     int vang_total = (GameSrc.get_vang_hopngoc(id_g1) / 50_000) * 1_000_000;
+                    if (p.get_vang() < vang_total) {
+                        Service.send_notice_box(p.conn, "Không đủ " + vang_total + " vàng!");
+                        return;
+                    }
                     Message m = new Message(-100);
-                    if (45 > Util.random(100)) {
+                    if (GemRules.SOCKET_SUCCESS_PERCENT > Util.random(100)) {
                         for (int i = 0; i < it3.op.size(); i++) {
                             if (it3.op.get(i).id == (index_ngoc_kham_vao + 58)) {
                                 it3.op.get(i).setParam(id_g1);
@@ -2211,24 +2215,24 @@ public class GameSrc {
                                 break;
                             }case 407:
                             case 377:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(100, 200)));
+                                it3.op.add(new Option(107, GemRules.critDamagePercent(id_g1) * 100));
                                 break;
                             }case 408:
                             case 378:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(200, 300)));
+                                it3.op.add(new Option(107, GemRules.critDamagePercent(id_g1) * 100));
                                 break;
                             }case 409:
                             case 379:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(300, 400)));
+                                it3.op.add(new Option(107, GemRules.critDamagePercent(id_g1) * 100));
                                 break;
                             }case 410:
                             case 380:
                                 { // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(400, 500)));
+                                it3.op.add(new Option(107, GemRules.critDamagePercent(id_g1) * 100));
                                 break;
                             }                            case 411:
                             case 381: { // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(500, 600)));
+                                it3.op.add(new Option(107, GemRules.critDamagePercent(id_g1) * 100));
                                 break;
                             }
                             case 23:
@@ -2317,6 +2321,10 @@ public class GameSrc {
                         Service.send_notice_box(p.conn, "Lỗi hãy thử lại!");
                         return;
                     }
+                    if (!GemRules.isValidDrillTool(id_g1)) {
+                        Service.send_notice_box(p.conn, "Nguyên liệu đục không hợp lệ!");
+                        return;
+                    }
                     if (p.get_vang() < ((index_ngoc_kham_vao + 1) * 1_000_000)) {
                         Service.send_notice_box(p.conn, "Không đủ " + ((index_ngoc_kham_vao + 1) * 1_000_000) + " vàng!");
                         return;
@@ -2334,9 +2342,6 @@ public class GameSrc {
                         suc = 55 > Util.random(100 + index_ngoc_kham_vao * 35);
                     } else if (id_g1 == 45) {
                         suc = 65 > Util.random(100 + index_ngoc_kham_vao * 35);
-                    } else {
-                        Service.send_notice_box(p.conn, "Nguyên liệu đục không hợp lệ!");
-                        return;
                     }
                     Message m = new Message(-100);
                     if (suc) {
@@ -2358,36 +2363,6 @@ public class GameSrc {
                 break;
             }
         }
-    }
-
-    private static boolean check_item_kham_ngoc_type(short id_g1, Item3 it3) {
-        boolean check = false;
-        // Vu khi: kiem, sung, gay, bua... (type 8..11)
-        if ((it3.type >= 8 && it3.type <= 11) && ((id_g1 >= 352 && id_g1 <= 361) || (id_g1 >= 23 && id_g1 <= 32))) {
-            check = true;
-        }
-        if ((it3.type == 0 || it3.type == 1 || it3.type == 2 || it3.type == 3 || it3.type == 6) && id_g1 >= 362
-                && id_g1 <= 371) {
-            check = true;
-        }
-        if ((it3.type == 4 || it3.type == 5) && id_g1 >= 372 && id_g1 <= 381) {
-            check = true;
-        }
-        //
-        if (!check) {
-            id_g1 -= 30;
-            if ((it3.type >= 8 && it3.type <= 11) && ((id_g1 >= 352 && id_g1 <= 361) || (id_g1 >= 23 && id_g1 <= 32))) {
-                check = true;
-            }
-            if ((it3.type == 0 || it3.type == 1 || it3.type == 2 || it3.type == 3 || it3.type == 6) && id_g1 >= 362
-                    && id_g1 <= 371) {
-                check = true;
-            }
-            if ((it3.type == 4 || it3.type == 5) && id_g1 >= 372 && id_g1 <= 381) {
-                check = true;
-            }
-        }
-        return check;
     }
 
     public static int get_vang_hopngoc(int id) {

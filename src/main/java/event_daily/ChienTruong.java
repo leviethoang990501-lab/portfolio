@@ -79,9 +79,9 @@ public class ChienTruong {
 			} else if (this.status == 2) {
 				this.time--;
 				// event
-				if (this.time == 60 * 50) {
+				if (this.time == BattlefieldRules.FIRST_BOSS_TIME_LEFT) {
 					create_boss(10);
-				} else if (this.time == 60 * 40) {
+				} else if (this.time == BattlefieldRules.SECOND_BOSS_TIME_LEFT) {
 					create_boss(20);
 				}
 				//
@@ -295,12 +295,12 @@ public synchronized void close_and_start() throws IOException {
 		}
 		int dem = 4;
 		for (int i = 0; i < info_house.length; i++) {
-			if (info_house[i] < 0) {
+			if (info_house[i] == 0) {
 				finish_house(i + 2);
 				dem--;
 			}
 		}
-		if (dem <= 1) {
+		if (dem <= 1 && this.time > 5) {
 			this.time = 5;
 			for (Entry<String, Member_ChienTruong> en : this.list.entrySet()) {
 				Player p0 = Map.get_player_by_name(en.getKey());
@@ -363,7 +363,7 @@ public synchronized void close_and_start() throws IOException {
 			List<Player> list_receiv = new ArrayList<>();
 			for (Entry<String, Member_ChienTruong> en : this.list.entrySet()) {
 				Player p0 = Map.get_player_by_name(en.getKey());
-				if (p0 != null && Map.is_map_chien_truong(p0.map.map_id)) {
+				if (p0 != null && !p0.isdie && Map.is_map_chien_truong(p0.map.map_id)) {
 					list_receiv.add(p0);
 				}
 			}
@@ -431,13 +431,14 @@ public synchronized void close_and_start() throws IOException {
 			temp.point = 0;
 			temp.village = 0;
 			temp.received = false;
+			p.ct_revive_count = 0;
 			this.list.put(p.name, temp);
 			Service.send_notice_box(p.conn, "Đăng Ký Thành Công, Vui Lòng Đăng Nhập Game Trước 21:30 Để Tham Gia Chiến Trường!");
 			//
 			if (type == 0) {
-				this.vang += 800000;
+				this.vang += BattlefieldRules.FEE_VANG;
 			} else {
-				this.ngoc += 450;
+				this.ngoc += BattlefieldRules.FEE_NGOC;
 			}
 		}
 	}
