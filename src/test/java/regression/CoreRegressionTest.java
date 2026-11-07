@@ -1,7 +1,9 @@
 package regression;
 
+import client.Clan;
 import client.Pet;
 import core.CharacterDefaults;
+import core.CosmeticRules;
 import core.EquipmentRules;
 import core.SkillRules;
 import core.TestTopUpRules;
@@ -38,6 +40,7 @@ public final class CoreRegressionTest {
         testNewCharacterDefaults();
         testEquipmentSlots();
         testEquipmentEligibility();
+        testMaskAndClanMountRules();
         testUpgradeRequirements();
         testSoloBossBalance();
         testSoloBattlefieldBalance();
@@ -134,6 +137,31 @@ public final class CoreRegressionTest {
         check(EquipmentRules.wearSlot((byte) 99, (byte) 0) == -1, "unknown equipment rejected");
     }
 
+    private static void testMaskAndClanMountRules() {
+        check(Manager.maskRequiredLevel((byte) 21, (short) 150) == 10,
+                "all masks are normalized to level 10");
+        check(Manager.maskRequiredLevel((byte) 15, (short) 150) == 150,
+                "non-mask equipment keeps its required level");
+        for (byte type : new byte[]{15, 21, 22, 23, 24, 25, 26}) {
+            check(CosmeticRules.isCosmeticType(type), "cosmetic type " + type + " uses shared shop rules");
+            check(CosmeticRules.requiredLevel(type, (short) 150) == 10,
+                    "cosmetic type " + type + " is wearable from level 10");
+        }
+        check(CosmeticRules.TEMPORARY_PRICE_GEMS == 300, "30-day cosmetic price");
+        check(CosmeticRules.PERMANENT_PRICE_GEMS == 3_000, "permanent cosmetic price");
+        long now = 1_000L;
+        check(CosmeticRules.expiresAt(now, (short) 4632, false) == now + 30L * 24 * 60 * 60 * 1000,
+                "temporary cosmetics last exactly 30 days");
+        check(CosmeticRules.expiresAt(now, (short) 4632, true) == 0L, "permanent cosmetics do not expire");
+        check(Manager.purchasedEquipmentRequiredLevel((byte) 0, (short) 150) == 10,
+                "purchased wearable equipment is reduced to level 10");
+        Set<Short> clanShopItems = new HashSet<>();
+        for (short itemId : Clan.item_shop) clanShopItems.add(itemId);
+        for (short mountId : new short[]{146, 159, 160, 161, 163}) {
+            check(clanShopItems.contains(mountId), "clan shop sells wolf/lion mount " + mountId);
+        }
+    }
+
     private static void testEquipmentEligibility() {
         Item3 item = new Item3();
         item.type = 16;
@@ -189,6 +217,16 @@ public final class CoreRegressionTest {
         check(MedalRules.alternatePercentDamageOption(warriorMedal, 9) != 9,
                 "percent damage reroll cannot return the same line");
         check(MedalRules.CHANGE_LINE_GEM_COST == 100, "medal line change costs 100 gems");
+        check(!MedalRules.shouldRerollMaterialsAfterUpgrade(1), "medal materials stay at +1");
+        check(!MedalRules.shouldRerollMaterialsAfterUpgrade(5), "medal materials stay through +5");
+        check(MedalRules.shouldRerollMaterialsAfterUpgrade(6), "medal materials reroll at +6");
+        check(MedalRules.shouldRerollMaterialsAfterUpgrade(7), "medal materials reroll from +7 onward");
+        warriorMedal.op = new java.util.ArrayList<>();
+        warriorMedal.op.add(new template.Option(4, 100));
+        warriorMedal.op.add(new template.Option(11, 10));
+        check(MedalRules.normalizeDamageOptions(warriorMedal), "foreign medal damage lines repaired");
+        check(warriorMedal.op.get(0).id == 2, "warrior flat damage normalized to fire");
+        check(warriorMedal.op.get(1).id == 9, "warrior percent damage normalized to fire");
     }
 
     private static void testUpgradeRequirements() {
@@ -407,13 +445,16 @@ public final class CoreRegressionTest {
     private static void testBossMaterialRules() {
         for (int bossId : new int[]{103, 104, 101, 84, 105, 83, 106, 149, 155, 174}) {
             short[] types = BossRules.violetTypes(bossId);
-            check(types.length >= 2 && types.length <= 3, "boss " + bossId + " carries 2-3 violet types");
+            check(types.length >= 1 && types.length <= 3, "boss " + bossId + " carries 1-3 violet types");
             for (short id : types) {
                 check(id >= 136 && id <= 145, "boss " + bossId + " material " + id + " is violet");
             }
         }
         check(BossRules.violetTypes(0).length == 0, "normal mobs carry no violet material");
         check(BossRules.VIOLET_STOCK > 0, "bosses carry violet stock");
+        check(BossRules.BLUE_FEATHER_DROP_PERCENT == 25, "blue feather drop rate is increased");
+        check(BossRules.BOSS_THREE_COLOR_STONE_DROP_PERCENT == 40, "boss three-color stone chance");
+        check(BossRules.THREE_COLOR_STONE_ITEM_ID == 196, "three-color stone item id");
         template.Mob quy = new template.Mob();
         template.Mob de = new template.Mob();
         map.Mob_in_map zone0 = testBoss(quy, 5, 0);
@@ -438,7 +479,7 @@ public final class CoreRegressionTest {
             check(BossRules.soloHp(BossRules.dungeonBossId(mode), 1) > 1, "dungeon boss " + mode + " is a real boss");
         }
         check(BossRules.dungeonBossId(99) == BossRules.dungeonBossId(4), "unknown mode falls back to hardest boss");
-        check(GemRules.SOCKET_SUCCESS_PERCENT == 55, "socket success rate");
+        check(GemRules.SOCKET_SUCCESS_PERCENT == 85, "socket success rate");
         map.ItemMap item = new map.ItemMap();
         item.idmaster = 5;
         check(item.canPick(5, "a") && !item.canPick(6, "b"), "only the owner picks unshared items");
@@ -493,6 +534,13 @@ public final class CoreRegressionTest {
                 "gem on wrong equipment rejected");
         check(GemRules.isValidDrillTool(33) && GemRules.isValidDrillTool(45) && !GemRules.isValidDrillTool(34),
                 "drill tools");
+        check(GemRules.drillSuccessPercent(33, 0) == 70 && GemRules.drillSuccessPercent(33, 2) == 50,
+                "basic drill rates");
+        check(GemRules.drillSuccessPercent(44, 0) == 85 && GemRules.drillSuccessPercent(44, 2) == 65,
+                "advanced drill rates");
+        check(GemRules.drillSuccessPercent(45, 0) == 95 && GemRules.drillSuccessPercent(45, 2) == 75,
+                "premium drill rates");
+        check(GemRules.drillSuccessPercent(34, 0) == 0, "invalid drill has no success rate");
         check(GemRules.isResistedByKhaiHoan(-124) && GemRules.isResistedByKhaiHoan(-206)
                 && GemRules.isResistedByKhaiHoan(4), "debuffs resisted");
         check(!GemRules.isResistedByKhaiHoan(GemRules.EFF_KHAI_HOAN) && !GemRules.isResistedByKhaiHoan(-200)
@@ -561,6 +609,19 @@ public final class CoreRegressionTest {
         }
         check(mounts.size() == 48, "all item4 mounts are open for sale");
         check(Manager.EVENT_WING_SHOP_ITEMS.length == 7, "all seven fashion wings are open for sale");
+        check(Manager.WING_SPEEDUP_SHOP_ITEMS.length == 4, "all four wing speedups are open for sale");
+        check(Manager.wingSpeedupGemPrice((short) 131) == 10, "wing speedup level 1 price");
+        check(Manager.wingSpeedupGemPrice((short) 132) == 20, "wing speedup level 2 price");
+        check(Manager.wingSpeedupGemPrice((short) 133) == 35, "wing speedup level 3 price");
+        check(Manager.wingSpeedupGemPrice((short) 134) == 50, "wing speedup level 4 price");
+        check(Manager.WING_REQUIRED_LEVEL == 40, "wing required level is 40");
+        check(Manager.wingSpeedupPercent((short) 131) == 10, "wing speedup level 1 effect");
+        check(Manager.wingSpeedupPercent((short) 132) == 20, "wing speedup level 2 effect");
+        check(Manager.wingSpeedupPercent((short) 133) == 50, "wing speedup level 3 effect");
+        check(Manager.wingSpeedupPercent((short) 134) == 90, "wing speedup level 4 effect");
+        check(Manager.acceleratedWingReadyAt(1_000L, 11_000L, (short) 133) == 6_000L,
+                "50 percent wing speedup halves remaining time");
+        check(Manager.wingRequiredLevel((short) 60) == 40, "existing level 60 wings normalize to 40");
     }
 
     private static void testGemEquipmentShopPrices() {

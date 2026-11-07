@@ -43,7 +43,7 @@ public final class MedalRules {
     public static byte alternateFlatDamageOption(Item3 item, int currentOptionId) {
         if (item == null || item.type != 16) return -1;
         int current = Byte.toUnsignedInt((byte) currentOptionId);
-        if (current < 0 || current > 4) return -1;
+        if (current > 4) return -1;
         byte elemental = flatDamageOptionForMedal(item.id);
         if (elemental < 0) return -1;
         return current == 0 ? elemental : (byte) 0;
@@ -62,6 +62,34 @@ public final class MedalRules {
         return current == 7 ? elemental : (byte) 7;
     }
 
+    /**
+     * A successful upgrade keeps the same material set through +5. The set is
+     * rerolled on reaching +6 and after every successful upgrade from +7 on.
+     */
+    public static boolean shouldRerollMaterialsAfterUpgrade(int newTier) {
+        return newTier >= 6;
+    }
+
+    /** Keeps legacy/corrupt medal damage lines inside the medal's own class family. */
+    public static boolean normalizeDamageOptions(Item3 item) {
+        if (item == null || item.type != 16 || !isClassMedal(item.id) || item.op == null) return false;
+        byte ownFlat = flatDamageOptionForMedal(item.id);
+        byte ownPercent = percentDamageOptionForMedal(item.id);
+        boolean changed = false;
+        for (Option option : item.op) {
+            if (option == null) continue;
+            int optionId = Byte.toUnsignedInt(option.id);
+            if (optionId >= 1 && optionId <= 4 && option.id != ownFlat) {
+                option.id = ownFlat;
+                changed = true;
+            } else if (optionId >= 8 && optionId <= 11 && option.id != ownPercent) {
+                option.id = ownPercent;
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
     public static boolean canWear(Item3 item, byte clazz) {
         if (item == null || item.type != 16 || !isClassMedal(item.id)) return true;
         return item.id == medalIdForClass(clazz);
@@ -75,7 +103,7 @@ public final class MedalRules {
     public static boolean normalizeEquipped(Item3 item, byte clazz) {
         if (item == null || item.type != 16 || !validClass(clazz) || !isClassMedal(item.id)) return false;
         short expectedId = medalIdForClass(clazz);
-        if (item.id == expectedId) return false;
+        if (item.id == expectedId) return normalizeDamageOptions(item);
 
         int sourceClass = classForMedal(item.id);
         byte sourceFlat = FLAT_DAMAGE_OPTIONS[sourceClass];
@@ -93,6 +121,7 @@ public final class MedalRules {
         item.icon = MEDAL_ICONS[clazz];
         item.clazz = 4;
         item.part = 0;
+        normalizeDamageOptions(item);
         return true;
     }
 

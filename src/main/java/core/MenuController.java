@@ -329,6 +329,14 @@ public class MenuController {
         }
 
         switch (idnpc) {
+            case 1003: {
+                if (index == 0 || index == 1) {
+                    Service.buyPendingCosmetic(conn.p, index == 1);
+                } else {
+                    conn.p.pending_cosmetic_id = -1;
+                }
+                break;
+            }
             case -1: { // NPC Da dich chuyen
                 if (index == 0) { // "Ve Làng Sói Trắng"
                     Vgo vgo = new Vgo();
@@ -1944,6 +1952,30 @@ public class MenuController {
                 conn.addmsg(m2);
                 m2.cleanup();
                 conn.p.is_create_wing = false;
+                break;
+            }
+            case 2: {
+                long now = System.currentTimeMillis();
+                long nearestReadyAt = Long.MAX_VALUE;
+                int activated = 0;
+                for (Item3 item : conn.p.item.bag3) {
+                    if (item == null || item.type != 7 || item.time_use <= 0) continue;
+                    if (item.time_use <= now) {
+                        item.time_use = 0;
+                        activated++;
+                    } else if (item.time_use < nearestReadyAt) {
+                        nearestReadyAt = item.time_use;
+                    }
+                }
+                if (activated > 0) {
+                    conn.p.item.char_inventory(3);
+                    Service.send_notice_box(conn, "Đã kích hoạt " + activated + " cánh hoàn tất nâng cấp.");
+                } else if (nearestReadyAt != Long.MAX_VALUE) {
+                    long minutes = Math.max(1L, (nearestReadyAt - now + 59_999L) / 60_000L);
+                    Service.send_notice_box(conn, "Cánh chưa hoàn tất nâng cấp, còn " + minutes + " phút.");
+                } else {
+                    Service.send_notice_box(conn, "Không có cánh đang chờ kích hoạt.");
+                }
                 break;
             }
             case 3: {

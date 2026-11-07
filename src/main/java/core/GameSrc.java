@@ -719,6 +719,25 @@ public class GameSrc {
         return (2 + tier);
     }
 
+    private static void rerollMedalMaterials(Player player, int medalId) {
+        int materialType1 = Util.random(0, 7);
+        int materialType2 = Util.random(0, 7);
+        while (materialType1 == materialType2) {
+            materialType2 = Util.random(0, 7);
+        }
+        int start = 5 * (medalId - 4587);
+        player.medal_create_material[start] =
+                (short) (Medal_Material.m_white[materialType1][Util.random(0, 10)] + 200);
+        player.medal_create_material[start + 1] =
+                (short) (Medal_Material.m_white[materialType2][Util.random(0, 10)] + 200);
+        player.medal_create_material[start + 2] =
+                (short) (Medal_Material.m_blue[Util.random(0, 10)] + 200);
+        player.medal_create_material[start + 3] =
+                (short) (Medal_Material.m_yellow[Util.random(0, 10)] + 200);
+        player.medal_create_material[start + 4] =
+                (short) (Medal_Material.m_violet[Util.random(0, 10)] + 200);
+    }
+
     public static void Create_Medal(Session conn, Message m2) throws IOException {
 		byte type = m2.reader().readByte();
 		short id = -1;
@@ -850,21 +869,7 @@ public class GameSrc {
 						for (int i = bound1; i < bound2; i++) {
 							conn.p.item.remove(7, conn.p.medal_create_material[i], 1);
 						}
-						// change material
-						int material_type_1st = Util.random(0, 7);
-						int material_type_2nd = Util.random(0, 7);
-						while (material_type_1st == material_type_2nd) {
-							material_type_2nd = Util.random(0, 7);
-						}
-						conn.p.medal_create_material[bound1] =
-						      (short) (Medal_Material.m_white[material_type_1st][Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[bound1 + 1] =
-						      (short) (Medal_Material.m_white[material_type_2nd][Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[bound1 + 2] = (short) (Medal_Material.m_blue[Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[bound1 + 3] =
-						      (short) (Medal_Material.m_yellow[Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[bound1 + 4] =
-						      (short) (Medal_Material.m_violet[Util.random(0, 10)] + 200);
+						rerollMedalMaterials(conn.p, conn.p.id_medal_is_created + 4587);
 						Message m = new Message(-105);
 						m.writer().writeByte(3);
 						m.writer().writeByte(3);
@@ -1195,23 +1200,9 @@ public class GameSrc {
 								break;
 							}
 						}
-						// change material
-						int material_type_1st = Util.random(0, 7);
-						int material_type_2nd = Util.random(0, 7);
-						while (material_type_1st == material_type_2nd) {
-							material_type_2nd = Util.random(0, 7);
+						if (MedalRules.shouldRerollMaterialsAfterUpgrade(it_temp.tier)) {
+							rerollMedalMaterials(conn.p, it_temp.id);
 						}
-						int id_material = 5 * (it_temp.id - 4587);
-						conn.p.medal_create_material[id_material] =
-						      (short) (Medal_Material.m_white[material_type_1st][Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[id_material + 1] =
-						      (short) (Medal_Material.m_white[material_type_2nd][Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[id_material + 2] =
-						      (short) (Medal_Material.m_blue[Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[id_material + 3] =
-						      (short) (Medal_Material.m_yellow[Util.random(0, 10)] + 200);
-						conn.p.medal_create_material[id_material + 4] =
-						      (short) (Medal_Material.m_violet[Util.random(0, 10)] + 200);
 					}
 					//
 					Message m = new Message(-105);
@@ -1443,7 +1434,7 @@ public class GameSrc {
             itbag.name = temp.getName();
             itbag.clazz = temp.getClazz();
             itbag.type = temp.getType();
-            itbag.level = 60;
+            itbag.level = Manager.WING_REQUIRED_LEVEL;
             itbag.icon = temp.getIcon();
             //
             itbag.op = new ArrayList<>();
@@ -1537,7 +1528,7 @@ public class GameSrc {
                     m.writer().writeInt(it.id);
                     m.writer().writeUTF((it.name + " +" + (it.tier + 1)));
                     m.writer().writeInt(GameSrc.wing_upgrade_material_gold[it.tier]);
-                    m.writer().writeShort(60);
+                    m.writer().writeShort(Manager.WING_REQUIRED_LEVEL);
                     m.writer().writeInt(GameSrc.wing_upgrade_material_time[it.tier] * 60);
                     m.writer().writeByte(6);
                     m.writer().writeShort(8);
@@ -2335,14 +2326,8 @@ public class GameSrc {
                     }
                     p.update_vang(-((index_ngoc_kham_vao + 1) * 1_000_000));
                     p.item.remove(7, id_g1, 1);
-                    boolean suc = false;
-                    if (id_g1 == 33) {
-                        suc = 35 > Util.random(100 + index_ngoc_kham_vao * 35);
-                    } else if (id_g1 == 44) {
-                        suc = 55 > Util.random(100 + index_ngoc_kham_vao * 35);
-                    } else if (id_g1 == 45) {
-                        suc = 65 > Util.random(100 + index_ngoc_kham_vao * 35);
-                    }
+                    int successPercent = GemRules.drillSuccessPercent(id_g1, index_ngoc_kham_vao);
+                    boolean suc = successPercent > Util.random(100);
                     Message m = new Message(-100);
                     if (suc) {
                         it3.op.add(new Option((58 + index_ngoc_kham_vao), -1));
